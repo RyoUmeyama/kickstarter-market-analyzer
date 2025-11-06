@@ -91,7 +91,7 @@ class KickstarterScraper:
         amounts = set()
 
         # パターン1: data-reward属性
-        pattern = re.compile(r'data-reward[^>]*minimum[^>]*=["\''](\d+)["\'']', re.I)
+        pattern = re.compile(r'data-reward[^>]*minimum[^>]*=["\'](\d+)["\']', re.I)
         for match in pattern.finditer(html):
             amounts.add(int(match.group(1)))
 
@@ -111,7 +111,7 @@ class KickstarterScraper:
     def _extract_funding_total(self, html):
         """総支援額を抽出（USD）"""
         # パターン1: data-pledged属性
-        match = re.search(r'data-pledged=["\'']([^"\']+)["\'']', html, re.I)
+        match = re.search(r'data-pledged=["\']([^"\']+)["\']', html, re.I)
         if match:
             amount_str = re.sub(r'[^0-9.]', '', match.group(1))
             try:
@@ -141,7 +141,7 @@ class KickstarterScraper:
     def _extract_backers(self, html):
         """支援者数を抽出"""
         # パターン1: data-backers-count
-        match = re.search(r'data-backers-count=["\'']([^"\']+)["\'']', html, re.I)
+        match = re.search(r'data-backers-count=["\']([^"\']+)["\']', html, re.I)
         if match:
             return int(match.group(1))
 
@@ -160,7 +160,7 @@ class KickstarterScraper:
     def _extract_category(self, html):
         """カテゴリを抽出"""
         # data-category属性
-        match = re.search(r'data-category=["\'']([^"\']+)["\'']', html, re.I)
+        match = re.search(r'data-category=["\']([^"\']+)["\']', html, re.I)
         if match:
             return match.group(1)
 
@@ -174,7 +174,7 @@ class KickstarterScraper:
     def _extract_end_date(self, html):
         """終了日を抽出"""
         # data-end_time属性
-        match = re.search(r'data-end[_-]time=["\'']([^"\']+)["\'']', html, re.I)
+        match = re.search(r'data-end[_-]time=["\']([^"\']+)["\']', html, re.I)
         if match:
             try:
                 timestamp = int(match.group(1))
@@ -213,7 +213,7 @@ class KickstarterScraper:
     def _extract_goal_amount(self, html):
         """ゴール金額を抽出"""
         # data-goal属性
-        match = re.search(r'data-goal=["\'']([^"\']+)["\'']', html, re.I)
+        match = re.search(r'data-goal=["\']([^"\']+)["\']', html, re.I)
         if match:
             amount_str = re.sub(r'[^0-9.]', '', match.group(1))
             try:
