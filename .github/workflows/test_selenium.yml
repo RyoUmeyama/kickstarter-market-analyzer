@@ -1,0 +1,53 @@
+name: Test Selenium in GitHub Actions
+
+on:
+  workflow_dispatch:  # 手動トリガーのみ
+
+jobs:
+  test-selenium:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Chrome
+        run: |
+          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Setup ChromeDriver
+        uses: nanasess/setup-chromedriver@v2
+
+      - name: Verify Chrome and ChromeDriver versions
+        run: |
+          echo "Chrome version:"
+          google-chrome --version
+          echo "ChromeDriver version:"
+          chromedriver --version
+
+      - name: Test Selenium scraper
+        run: |
+          echo "Testing Selenium scraper with Kickstarter..."
+          python kickstarter_scraper_selenium.py
+
+      - name: Upload screenshot on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-logs
+          path: |
+            *.log
+            *.png
