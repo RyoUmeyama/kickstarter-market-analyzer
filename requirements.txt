@@ -19,3 +19,4 @@ python-dotenv>=1.0.0
 
 # Date/Time
 python-dateutil>=2.8.0
+selenium>=4.15.0

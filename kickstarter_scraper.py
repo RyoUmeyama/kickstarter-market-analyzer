@@ -8,28 +8,63 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import time
+import random
 from datetime import datetime
 
 
 class KickstarterScraper:
     """Kickstarterプロジェクト情報を取得するクラス"""
 
-    def __init__(self):
+    # User-Agentのリスト（ランダム化）
+    USER_AGENTS = [
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    ]
+
+    def __init__(self, max_retries=3, retry_delay=5, debug=False):
+        """
+        Args:
+            max_retries (int): 最大リトライ回数
+            retry_delay (int): リトライ間隔の初期値（秒）
+            debug (bool): デバッグモード
+        """
         self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
+        self.debug = debug
+        self._update_headers()
+
+    def _update_headers(self, referer=None):
+        """ヘッダーを更新（ランダムUser-Agent含む）"""
+        headers = {
+            'User-Agent': random.choice(self.USER_AGENTS),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9,ja;q=0.8',
             'Accept-Encoding': 'gzip, deflate, br',
-            'Referer': 'https://www.kickstarter.com/',
+            'DNT': '1',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
-            'Cache-Control': 'max-age=0'
-        })
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'same-origin' if referer else 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0',
+            'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"macOS"'
+        }
+
+        if referer:
+            headers['Referer'] = referer
+
+        self.session.headers.update(headers)
 
     def fetch_project_data(self, url):
         """
-        Kickstarterプロジェクトのデータを取得
+        Kickstarterプロジェクトのデータを取得（リトライ付き）
 
         Args:
             url (str): KickstarterプロジェクトURL
@@ -37,40 +72,101 @@ class KickstarterScraper:
         Returns:
             dict: プロジェクト情報
         """
-        try:
-            print(f"Fetching: {url}")
+        for attempt in range(self.max_retries):
+            try:
+                print(f"Fetching: {url} (attempt {attempt + 1}/{self.max_retries})")
 
-            # リクエスト送信
-            response = self.session.get(url, timeout=30)
-            response.raise_for_status()
+                # ヘッダーを更新（User-Agentランダム化）
+                self._update_headers()
 
-            html = response.text
+                # 待機時間を追加（2回目以降）
+                if attempt > 0:
+                    wait_time = self.retry_delay * (2 ** attempt) + random.uniform(1, 3)
+                    print(f"  Waiting {wait_time:.1f} seconds before retry...")
+                    time.sleep(wait_time)
+                else:
+                    # 初回も軽く待機（人間らしい動作）
+                    time.sleep(random.uniform(1, 3))
 
-            # データ抽出
-            data = {
-                'url': url,
-                'product_name': self._extract_product_name(html),
-                'pledge_amounts': self._extract_pledge_amounts(html),
-                'funding_total_usd': self._extract_funding_total(html),
-                'funding_total_jpy': 0,
-                'backers': self._extract_backers(html),
-                'category': self._extract_category(html),
-                'end_date': self._extract_end_date(html),
-                'description': self._extract_description(html),
-                'goal_amount_usd': self._extract_goal_amount(html),
-                'fetched_at': datetime.now().isoformat()
-            }
+                # 2ステップアプローチ：まずホームページを訪問
+                if attempt == 0:
+                    try:
+                        print(f"  Step 1: Visiting Kickstarter homepage...")
+                        home_response = self.session.get('https://www.kickstarter.com/', timeout=10)
+                        time.sleep(random.uniform(1, 2))
+                    except:
+                        pass  # ホームページ訪問は失敗してもOK
 
-            # 円換算
-            if data['funding_total_usd'] > 0:
-                data['funding_total_jpy'] = int(data['funding_total_usd'] * 150)
+                # Refererを設定してリクエスト送信
+                self._update_headers(referer='https://www.kickstarter.com/')
+                print(f"  Step 2: Fetching project page...")
+                response = self.session.get(url, timeout=30, allow_redirects=True)
 
-            print(f"✓ Data extracted: {data['product_name']}")
-            return data
+                # ステータスコード確認
+                if response.status_code == 403:
+                    print(f"  ✗ Access forbidden (403). Retrying with different User-Agent...")
+                    continue
+                elif response.status_code == 429:
+                    print(f"  ✗ Rate limited (429). Waiting longer...")
+                    time.sleep(30)
+                    continue
+                elif response.status_code != 200:
+                    print(f"  ✗ HTTP {response.status_code}")
+                    continue
 
-        except requests.RequestException as e:
-            print(f"✗ Error fetching {url}: {e}")
-            return self._error_response(url, str(e))
+                html = response.text
+
+                # デバッグモード：HTMLサンプルを出力
+                if self.debug:
+                    print(f"\n  === HTML Sample (first 1000 chars) ===")
+                    print(html[:1000])
+                    print(f"  === End Sample ===\n")
+                    print(f"  Response headers: {dict(response.headers)}\n")
+
+                # HTMLの長さチェック（空のレスポンスやエラーページの検出）
+                if len(html) < 1000:
+                    print(f"  ⚠️  Response too short ({len(html)} bytes). Might be blocked.")
+                    if self.debug:
+                        print(f"  Full response:\n{html}")
+                    continue
+
+                # データ抽出
+                data = {
+                    'url': url,
+                    'product_name': self._extract_product_name(html),
+                    'pledge_amounts': self._extract_pledge_amounts(html),
+                    'funding_total_usd': self._extract_funding_total(html),
+                    'funding_total_jpy': 0,
+                    'backers': self._extract_backers(html),
+                    'category': self._extract_category(html),
+                    'end_date': self._extract_end_date(html),
+                    'description': self._extract_description(html),
+                    'goal_amount_usd': self._extract_goal_amount(html),
+                    'fetched_at': datetime.now().isoformat()
+                }
+
+                # 円換算
+                if data['funding_total_usd'] > 0:
+                    data['funding_total_jpy'] = int(data['funding_total_usd'] * 150)
+
+                # データ取得成功の確認（製品名が取れているか）
+                if data['product_name'] != '不明':
+                    print(f"✓ Data extracted: {data['product_name']}")
+                    return data
+                else:
+                    print(f"  ⚠️  Product name not found. Retrying...")
+                    continue
+
+            except requests.RequestException as e:
+                print(f"  ✗ Request error: {e}")
+                if attempt < self.max_retries - 1:
+                    continue
+                else:
+                    return self._error_response(url, str(e))
+
+        # 全てのリトライが失敗
+        print(f"✗ Failed to fetch data after {self.max_retries} attempts")
+        return self._error_response(url, f"Failed after {self.max_retries} attempts")
 
     def _extract_product_name(self, html):
         """製品名を抽出"""
@@ -243,14 +339,21 @@ class KickstarterScraper:
 
 def test_scraper():
     """スクレイパーのテスト"""
-    scraper = KickstarterScraper()
+    import sys
+
+    # デバッグモードの判定
+    debug = '--debug' in sys.argv or '-d' in sys.argv
+
+    scraper = KickstarterScraper(max_retries=3, retry_delay=5, debug=debug)
 
     test_url = 'https://www.kickstarter.com/projects/beehivebooks/gulliver'
 
     print("=" * 60)
-    print("Kickstarter Scraper Test")
+    print("Kickstarter Scraper Test (Enhanced)")
     print("=" * 60)
-    print(f"URL: {test_url}\n")
+    print(f"URL: {test_url}")
+    print(f"Debug Mode: {debug}")
+    print(f"Max Retries: 3\n")
 
     data = scraper.fetch_project_data(test_url)
 
@@ -267,6 +370,8 @@ def test_scraper():
 
     if 'error' in data:
         print(f"\n⚠️  Error: {data['error']}")
+
+    print("\n" + "=" * 60)
 
 
 if __name__ == '__main__':

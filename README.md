@@ -6,13 +6,22 @@ KickstarterプロジェクトのデータをスクレイピングしてChatGPT A
 
 - **Kickstarterスクレイピング**: プロジェクトURLから製品情報を自動取得
   - 製品名、価格、支援総額、支援者数、説明文など
+  - **Selenium使用**: Bot検出を回避して確実にデータ取得
 - **ChatGPT API連携**: 取得したデータをもとに日本市場向けレポートを自動生成
 - **Google Sheets統合**: レポートを自動的にスプレッドシートに書き込み
 - **メール送信**: 生成されたレポートをメールで送信
 
+## ⚡️ 重要: スクレイピング方法
+
+KickstarterはBot保護が非常に強力なため、**Selenium（実ブラウザ自動化）を使用**します。
+
+詳細は [SCRAPING_STRATEGIES.md](SCRAPING_STRATEGIES.md) を参照してください。
+
 ## 📋 必要なもの
 
 - Python 3.8以上
+- **Google Chrome**（Seleniumで使用）
+- **ChromeDriver**（自動インストール可能）
 - OpenAI APIキー
 - Google Cloud Platformアカウント（Google Sheets API用）
 - （オプション）SMTPサーバー（メール送信用）
@@ -39,7 +48,31 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. 環境変数の設定
+### 4. ChromeDriverのインストール
+
+#### Mac
+```bash
+brew install --cask chromedriver
+
+# セキュリティ設定を解除
+xattr -d com.apple.quarantine /opt/homebrew/bin/chromedriver
+```
+
+#### Linux
+```bash
+# ChromeDriverをダウンロード
+wget https://chromedriver.chromium.org/downloads
+
+# 解凍して/usr/local/binに配置
+unzip chromedriver_linux64.zip
+sudo mv chromedriver /usr/local/bin/
+sudo chmod +x /usr/local/bin/chromedriver
+```
+
+#### Windows
+[ChromeDriver公式サイト](https://chromedriver.chromium.org/)からダウンロードし、PATHに追加
+
+### 5. 環境変数の設定
 
 `.env.example`を`.env`にコピーして設定：
 
@@ -65,7 +98,7 @@ SMTP_PASSWORD=your_app_password
 RECIPIENT_EMAIL=recipient@gmail.com
 ```
 
-### 5. Google Sheets APIの設定
+### 6. Google Sheets APIの設定
 
 1. [Google Cloud Console](https://console.cloud.google.com/)でプロジェクトを作成
 2. Google Sheets APIを有効化
@@ -117,19 +150,21 @@ python check_kickstarter.py --row 3
 
 ```
 kickstarter-market-analyzer/
-├── check_kickstarter.py       # メインスクリプト
-├── kickstarter_scraper.py     # Kickstarterスクレイピング
-├── openai_client.py            # OpenAI API連携
-├── sheets_client.py            # Google Sheets連携
-├── requirements.txt            # Python依存関係
-├── .env.example                # 環境変数サンプル
-├── .env                        # 環境変数（作成する、コミットしない）
-├── .gitignore                  # Git除外設定
-├── README.md                   # このファイル
-├── SETUP_GOOGLE_SHEETS.md      # Google Sheets APIセットアップ手順
-├── credentials.json            # Google認証情報（作成する、コミットしない）
-├── token.json                  # Googleアクセストークン（自動生成、コミットしない）
-└── data/                       # データ保存ディレクトリ（自動生成）
+├── check_kickstarter.py              # メインスクリプト
+├── kickstarter_scraper.py            # Kickstarterスクレイピング（Requests版）
+├── kickstarter_scraper_selenium.py   # Kickstarterスクレイピング（Selenium版・推奨）⭐️
+├── openai_client.py                  # OpenAI API連携
+├── sheets_client.py                  # Google Sheets連携
+├── requirements.txt                  # Python依存関係
+├── .env.example                      # 環境変数サンプル
+├── .env                              # 環境変数（作成する、コミットしない）
+├── .gitignore                        # Git除外設定
+├── README.md                         # このファイル
+├── SETUP_GOOGLE_SHEETS.md            # Google Sheets APIセットアップ手順
+├── SCRAPING_STRATEGIES.md            # スクレイピング戦略の詳細⭐️
+├── credentials.json                  # Google認証情報（作成する、コミットしない）
+├── token.json                        # Googleアクセストークン（自動生成、コミットしない）
+└── data/                             # データ保存ディレクトリ（自動生成）
 ```
 
 ## ⚙️ 自動実行（cron）
@@ -148,8 +183,14 @@ crontab -e
 
 ### Kickstarterスクレイピングのテスト
 
+#### Selenium版（推奨）
 ```bash
-python test_scraper.py
+python kickstarter_scraper_selenium.py
+```
+
+#### Requests版（参考・ブロックされる）
+```bash
+python kickstarter_scraper.py
 ```
 
 ### OpenAI API接続テスト
