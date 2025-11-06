@@ -5,9 +5,11 @@ Google Sheets連携モジュール
 """
 
 import os
+import json
 import pickle
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google.oauth2 import service_account
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -30,7 +32,38 @@ class GoogleSheetsClient:
         self.service = self._authenticate()
 
     def _authenticate(self):
-        """Google Sheets APIの認証"""
+        """Google Sheets APIの認証（OAuth or サービスアカウント）"""
+
+        # GitHub Actions等の環境変数からサービスアカウント認証
+        if os.getenv('GOOGLE_CREDENTIALS_JSON'):
+            print("Using service account authentication (from environment variable)")
+            credentials_json = os.getenv('GOOGLE_CREDENTIALS_JSON')
+            credentials_dict = json.loads(credentials_json)
+            creds = service_account.Credentials.from_service_account_info(
+                credentials_dict,
+                scopes=SCOPES
+            )
+            return build('sheets', 'v4', credentials=creds)
+
+        # credentials.jsonがある場合はサービスアカウント認証を試みる
+        if os.path.exists('credentials.json'):
+            try:
+                with open('credentials.json', 'r') as f:
+                    credentials_dict = json.load(f)
+
+                # サービスアカウントかどうか判定
+                if credentials_dict.get('type') == 'service_account':
+                    print("Using service account authentication (from credentials.json)")
+                    creds = service_account.Credentials.from_service_account_file(
+                        'credentials.json',
+                        scopes=SCOPES
+                    )
+                    return build('sheets', 'v4', credentials=creds)
+            except (json.JSONDecodeError, KeyError):
+                pass
+
+        # OAuth 2.0認証（ローカル実行用）
+        print("Using OAuth 2.0 authentication (interactive)")
         creds = None
 
         # token.jsonに保存された認証情報を読み込み
@@ -47,8 +80,10 @@ class GoogleSheetsClient:
                 if not os.path.exists('credentials.json'):
                     raise FileNotFoundError(
                         'credentials.json が見つかりません。\n'
-                        'Google Cloud Consoleから OAuth 2.0クライアントIDを作成し、\n'
-                        'credentials.jsonとしてダウンロードしてください。'
+                        'Google Cloud Consoleから OAuth 2.0クライアントIDまたは\n'
+                        'サービスアカウントを作成し、credentials.jsonとして\n'
+                        'ダウンロードしてください。\n'
+                        'またはGOOGLE_CREDENTIALS_JSON環境変数を設定してください。'
                     )
 
                 flow = InstalledAppFlow.from_client_secrets_file(

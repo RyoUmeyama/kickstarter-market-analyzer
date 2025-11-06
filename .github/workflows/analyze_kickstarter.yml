@@ -1,0 +1,66 @@
+name: Kickstarter Market Analyzer
+
+on:
+  # 手動トリガー（クライアントがボタンをクリック）
+  workflow_dispatch:
+
+  # 自動実行（毎日9:00 JST = 0:00 UTC）
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Chrome and ChromeDriver
+        run: |
+          # Chrome安定版をインストール
+          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+          # ChromeDriverをインストール（setup-chromeアクションを使用）
+
+      - name: Setup ChromeDriver
+        uses: nanasess/setup-chromedriver@v2
+
+      - name: Verify Chrome and ChromeDriver
+        run: |
+          google-chrome --version
+          chromedriver --version
+
+      - name: Create Google credentials
+        run: |
+          echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > credentials.json
+
+      - name: Run analyzer
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          SHEET_NAME: ${{ secrets.SHEET_NAME }}
+        run: |
+          python check_kickstarter.py
+
+      - name: Upload logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-logs
+          path: |
+            *.log
+            data/

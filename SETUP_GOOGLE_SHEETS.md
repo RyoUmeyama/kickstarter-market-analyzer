@@ -1,196 +1,178 @@
-# Google Sheets API セットアップ手順
+# Google Sheets API セットアップガイド
 
-このドキュメントでは、Google Sheets APIを使用するための設定方法を説明します。
+このドキュメントでは、Google Sheets APIを使用するための設定手順を説明します。
 
-## 🎯 必要なもの
+## 🎯 認証方法の選択
 
-- Googleアカウント
-- Google Cloud Platformアカウント（無料）
+本プロジェクトは2種類の認証方法をサポートしています：
 
-## 📋 セットアップ手順
+| 認証方法 | 用途 | 推奨 |
+|---------|------|------|
+| **サービスアカウント** | GitHub Actions、サーバー実行 | ⭐ 推奨 |
+| OAuth 2.0 | ローカルPC実行（対話的認証） | ローカルのみ |
 
-### Step 1: Google Cloud Platformプロジェクトを作成
+**GitHub Actionsで使用する場合は、必ずサービスアカウントを使用してください。**
 
-1. **Google Cloud Console**にアクセス
-   - https://console.cloud.google.com/
+---
 
-2. **新しいプロジェクトを作成**
-   - 画面上部の「プロジェクトを選択」→「新しいプロジェクト」
-   - プロジェクト名: `kickstarter-analyzer`（任意）
-   - 「作成」をクリック
+## 📋 方法1: サービスアカウント認証（GitHub Actions用）⭐
 
-3. **プロジェクトを選択**
-   - 作成したプロジェクトが選択されていることを確認
+### ステップ1: Google Cloud Consoleでプロジェクト作成
 
-### Step 2: Google Sheets APIを有効化
+1. [Google Cloud Console](https://console.cloud.google.com/)にアクセス
+2. 右上の「プロジェクトを選択」→「新しいプロジェクト」
+3. プロジェクト名を入力（例: \`kickstarter-analyzer\`）
+4. 「作成」をクリック
 
-1. **APIとサービス > ライブラリ**にアクセス
-   - 左メニュー > 「APIとサービス」 > 「ライブラリ」
+### ステップ2: Google Sheets APIを有効化
 
-2. **Google Sheets APIを検索**
-   - 検索ボックスに「Google Sheets API」と入力
+1. 左メニュー → 「APIとサービス」→「ライブラリ」
+2. 検索バーで「Google Sheets API」を検索
+3. 「Google Sheets API」をクリック
+4. 「有効にする」をクリック
 
-3. **Google Sheets APIを有効化**
-   - 「Google Sheets API」をクリック
-   - 「有効にする」をクリック
+### ステップ3: サービスアカウントを作成
 
-### Step 3: OAuth 2.0クライアントIDを作成
+1. 左メニュー → 「APIとサービス」→「認証情報」
+2. 「認証情報を作成」→「サービスアカウント」を選択
+3. サービスアカウント名を入力（例: \`kickstarter-sheets-bot\`）
+4. サービスアカウントID（例: \`kickstarter-sheets-bot@your-project.iam.gserviceaccount.com\`）が自動生成される
+   - **このメールアドレスをメモしておく**
+5. 「作成して続行」をクリック
+6. ロールは「なし」でOK（スプレッドシート側で権限を付与するため）
+7. 「完了」をクリック
 
-1. **認証情報ページにアクセス**
-   - 左メニュー > 「APIとサービス」 > 「認証情報」
+### ステップ4: サービスアカウントキーをダウンロード
 
-2. **OAuth同意画面を設定**（初回のみ）
-   - 「OAuth同意画面」タブをクリック
-   - User Type: 「外部」を選択 → 「作成」
-   - アプリ名: `Kickstarter Market Analyzer`（任意）
-   - ユーザーサポートメール: 自分のGmailアドレス
-   - デベロッパーの連絡先情報: 自分のGmailアドレス
-   - 「保存して次へ」
+1. 作成したサービスアカウントをクリック
+2. 「キー」タブをクリック
+3. 「鍵を追加」→「新しい鍵を作成」
+4. キーのタイプ: **JSON**を選択
+5. 「作成」をクリック
+6. JSONファイルがダウンロードされる
+   - **このファイルは厳重に管理してください（公開しない）**
 
-3. **スコープを追加**（初回のみ）
-   - 「スコープを追加または削除」をクリック
-   - 検索: `Google Sheets API`
-   - `.../auth/spreadsheets` にチェック
-   - 「更新」 → 「保存して次へ」
+### ステップ5: スプレッドシートに共有設定
 
-4. **テストユーザーを追加**（初回のみ）
-   - 「テストユーザー」タブ
-   - 「+ ADD USERS」をクリック
-   - 自分のGmailアドレスを入力
-   - 「保存して次へ」
+1. 分析対象のGoogle Sheetsを開く
+2. 右上の「共有」ボタンをクリック
+3. サービスアカウントのメールアドレスを入力
+   - 例: \`kickstarter-sheets-bot@your-project.iam.gserviceaccount.com\`
+4. 権限を「編集者」に設定
+5. 「送信」をクリック
 
-5. **OAuth 2.0クライアントIDを作成**
-   - 「認証情報」タブに戻る
-   - 「+ 認証情報を作成」 > 「OAuth クライアント ID」
-   - アプリケーションの種類: 「デスクトップアプリ」
-   - 名前: `Kickstarter Analyzer Desktop`（任意）
-   - 「作成」をクリック
+### ステップ6: GitHub Secretsに設定
 
-6. **credentials.jsonをダウンロード**
-   - 作成された認証情報の右側の「ダウンロード」アイコン（↓）をクリック
-   - ダウンロードされたJSONファイルを `credentials.json` にリネーム
-   - プロジェクトルートに配置
+1. GitHubリポジトリ → Settings → Secrets and variables → Actions
+2. 「New repository secret」をクリック
+3. **Name**: \`GOOGLE_CREDENTIALS_JSON\`
+4. **Value**: ダウンロードしたJSONファイルの内容をそのまま貼り付け
+5. 「Add secret」をクリック
 
-```bash
-# ダウンロードしたファイルをプロジェクトルートにコピー
-mv ~/Downloads/client_secret_*.json /Users/r.umeyama/work/kickstarter-market-analyzer/credentials.json
-```
+### ステップ7: その他のSecretsを設定
 
-### Step 4: スプレッドシートを準備
+同様の手順で以下も設定：
 
-1. **新しいGoogleスプレッドシートを作成**
-   - https://sheets.google.com/ にアクセス
-   - 「空白」をクリック
+| Secret名 | 説明 | 例 |
+|---------|------|-----|
+| \`OPENAI_API_KEY\` | OpenAI APIキー | \`sk-proj-...\` |
+| \`SPREADSHEET_ID\` | SpreadsheetのID | \`1AbC...XyZ\`（URLの\`/d/\`と\`/edit\`の間） |
+| \`SHEET_NAME\` | シート名 | \`kickstarter\` |
 
-2. **シート名を設定**
-   - シート名（下部のタブ）: `kickstarter`
+---
 
-3. **列のヘッダーを設定**
+## 📋 方法2: OAuth 2.0認証（ローカル実行用）
 
-| A | B | C | D | E | F | G |
-|---|---|---|---|---|---|---|
-| 番号 | Kickstarter URL | 商品名 | メーカー名 | クリエーター名 | 日本語レポート | 英語レポート |
+ローカルPCで実行する場合のみ使用してください。
 
-4. **スプレッドシートIDを取得**
-   - URLから取得: `https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit`
-   - `{SPREADSHEET_ID}` の部分をコピー
+### ステップ1〜2: （方法1と同じ）
 
-例:
-```
-URL: https://docs.google.com/spreadsheets/d/1a2b3c4d5e6f7g8h9i0j/edit
-SPREADSHEET_ID: 1a2b3c4d5e6f7g8h9i0j
-```
+プロジェクト作成とGoogle Sheets API有効化は同じ手順です。
 
-5. **.envファイルに設定**
+### ステップ3: OAuth 2.0クライアントIDを作成
 
-```bash
-# .envファイルを編集
-SPREADSHEET_ID=your_spreadsheet_id_here
-SHEET_NAME=kickstarter
-```
+1. 左メニュー → 「APIとサービス」→「認証情報」
+2. 「認証情報を作成」→「OAuth クライアント ID」を選択
+3. アプリケーションの種類: **デスクトップアプリ**を選択
+4. 名前を入力（例: \`Kickstarter Analyzer Local\`）
+5. 「作成」をクリック
 
-### Step 5: 初回認証
+### ステップ4: credentials.jsonをダウンロード
 
-1. **テストスクリプトを実行**
+1. 作成したOAuth 2.0クライアントの右側にある「ダウンロード」アイコンをクリック
+2. JSONファイルがダウンロードされる
+3. ファイル名を\`credentials.json\`にリネーム
+4. プロジェクトルートに配置
 
-```bash
-python sheets_client.py
-```
+### ステップ5: 初回認証
 
-2. **ブラウザで認証**
-   - ブラウザが自動的に開きます
-   - Googleアカウントでログイン
-   - 「このアプリは Google で確認されていません」と表示されたら:
-     - 「詳細」をクリック
-     - 「[プロジェクト名]（安全ではないページ）に移動」をクリック
-   - 「許可」をクリック
+1. プロジェクトルートで実行：
+   \`\`\`bash
+   python check_kickstarter.py
+   \`\`\`
 
-3. **token.jsonが生成される**
-   - プロジェクトルートに `token.json` が作成されます
-   - これ以降は認証不要です
+2. ブラウザが自動的に開き、Google認証画面が表示される
 
-## ✅ 確認
+3. Googleアカウントでログイン
 
-スプレッドシートにテストデータを入力:
+4. 「このアプリは確認されていません」という警告が表示される場合：
+   - 「詳細」→「（アプリ名）に移動」をクリック
 
-| A | B | C | D | E | F | G |
-|---|---|---|---|---|---|---|
-| 番号 | Kickstarter URL | 商品名 | メーカー名 | クリエーター名 | 日本語レポート | 英語レポート |
-| 1 | https://www.kickstarter.com/projects/beehivebooks/gulliver | Gulliver | Beehive Books | Beehive Team | | |
+5. 権限のリクエストを「許可」
 
-テストスクリプトを実行:
+6. \`token.json\`が自動生成される
+   - 次回以降はこのトークンを使用（再認証不要）
 
-```bash
-python sheets_client.py
-```
+---
 
-出力例:
-```
-=================================================================
-Google Sheets API Test
-============================================================
-Spreadsheet ID: 1a2b3c4d5e6f7g8h9i0j
-Sheet Name: kickstarter
+## 🔧 トラブルシューティング
 
-Reading all rows...
-✓ Found 2 rows
+### エラー: \`credentials.json が見つかりません\`
 
-Finding unprocessed rows...
-✓ Found 1 unprocessed rows
+- OAuth 2.0認証の場合: credentials.jsonをダウンロードしてプロジェクトルートに配置
+- サービスアカウント認証の場合: \`GOOGLE_CREDENTIALS_JSON\`環境変数を設定
 
-Row 2: https://www.kickstarter.com/projects/beehivebooks/gulliver
+### エラー: \`HttpError 403: The caller does not have permission\`
 
-============================================================
-```
+- スプレッドシートがサービスアカウントに共有されているか確認
+- サービスアカウントのメールアドレスが正しいか確認
+- 権限が「編集者」になっているか確認
 
-## ⚠️ トラブルシューティング
+### エラー: \`invalid_grant\` (OAuth 2.0)
 
-### エラー: `credentials.json not found`
+- \`token.json\`を削除して再認証
+  \`\`\`bash
+  rm token.json
+  python check_kickstarter.py
+  \`\`\`
 
-- `credentials.json` がプロジェクトルートに配置されているか確認
-- ファイル名が正確か確認（`client_secret_xxx.json` ではなく `credentials.json`）
+### GitHub Actionsで\`credentials.json\`エラー
 
-### エラー: `HttpError 403: Forbidden`
+- \`GOOGLE_CREDENTIALS_JSON\`がGitHub Secretsに正しく設定されているか確認
+- JSONの形式が正しいか確認（\`{\`で始まり\`}\`で終わる）
 
-- Google Sheets APIが有効化されているか確認
-- スプレッドシートIDが正しいか確認
-- OAuth同意画面のテストユーザーに自分のメールアドレスが追加されているか確認
+---
 
-### エラー: `HttpError 404: Not Found`
+## 📝 セキュリティ注意事項
 
-- スプレッドシートIDが正しいか確認
-- シート名（`SHEET_NAME`）が正しいか確認
+### 絶対に公開してはいけないファイル
 
-### ブラウザが開かない
+- ✗ \`credentials.json\`（OAuth 2.0クライアント秘密鍵）
+- ✗ \`token.json\`（アクセストークン）
+- ✗ サービスアカウントのJSONキー
 
-```bash
-# 手動で認証URLを開く
-python sheets_client.py
-# 表示されたURLをブラウザにコピペ
-```
+これらは\`.gitignore\`に含まれています。
 
-## 📚 参考リンク
+### GitHub Secretsの安全性
+
+- GitHub Secretsは暗号化されて保存されます
+- ワークフローログには\`***\`でマスクされます
+- リポジトリの管理者のみアクセス可能
+
+---
+
+## 🔗 参考リンク
 
 - [Google Sheets API Documentation](https://developers.google.com/sheets/api)
-- [Python Quickstart](https://developers.google.com/sheets/api/quickstart/python)
-- [OAuth 2.0](https://developers.google.com/identity/protocols/oauth2)
+- [Google Cloud Console](https://console.cloud.google.com/)
+- [サービスアカウント認証について](https://cloud.google.com/iam/docs/service-accounts)

@@ -9,7 +9,47 @@ KickstarterプロジェクトのデータをスクレイピングしてChatGPT A
   - **Selenium使用**: Bot検出を回避して確実にデータ取得
 - **ChatGPT API連携**: 取得したデータをもとに日本市場向けレポートを自動生成
 - **Google Sheets統合**: レポートを自動的にスプレッドシートに書き込み
-- **メール送信**: 生成されたレポートをメールで送信
+- **GitHub Actions対応**: クライアント側の技術的ハードルを最小化
+
+## 💻 実行環境の選択
+
+### 推奨: GitHub Actions（クライアント向け）⭐
+
+**こんな方におすすめ**:
+- ITリテラシーに自信がない方
+- Windowsユーザー
+- Python環境のセットアップが難しい方
+
+**メリット**:
+- ✓ **技術的ハードルがほぼゼロ**（Google Sheetsに入力するだけ）
+- ✓ PCへのソフトウェアインストール不要
+- ✓ 手動トリガーまたは自動実行
+- ✓ 無料（月2000分まで）
+
+**使い方**:
+1. Google Sheetsに行を追加
+2. GitHubのボタンをクリック（または自動実行を待つ）
+3. 結果がGoogle Sheetsに自動書き込み
+
+詳細は **[SETUP_FOR_CLIENT.md](SETUP_FOR_CLIENT.md)** を参照
+
+---
+
+### ローカル実行（開発者向け）
+
+**こんな方におすすめ**:
+- Python環境のセットアップに慣れている方
+- ローカルでカスタマイズしたい方
+- 即座に実行結果を確認したい方
+
+**必要なもの**:
+- Python 3.8以上
+- Google Chrome + ChromeDriver
+- コマンドライン操作の基本知識
+
+詳細は下記の「セットアップ」セクションを参照
+
+---
 
 ## ⚡️ 重要: スクレイピング方法
 
@@ -151,17 +191,20 @@ python check_kickstarter.py --row 3
 ```
 kickstarter-market-analyzer/
 ├── check_kickstarter.py              # メインスクリプト
-├── kickstarter_scraper.py            # Kickstarterスクレイピング（Requests版）
+├── kickstarter_scraper.py            # Kickstarterスクレイピング（Requests版・参考）
 ├── kickstarter_scraper_selenium.py   # Kickstarterスクレイピング（Selenium版・推奨）⭐️
 ├── openai_client.py                  # OpenAI API連携
-├── sheets_client.py                  # Google Sheets連携
+├── sheets_client.py                  # Google Sheets連携（OAuth & サービスアカウント対応）
 ├── requirements.txt                  # Python依存関係
 ├── .env.example                      # 環境変数サンプル
 ├── .env                              # 環境変数（作成する、コミットしない）
 ├── .gitignore                        # Git除外設定
 ├── README.md                         # このファイル
+├── SETUP_FOR_CLIENT.md               # クライアント向けセットアップガイド（GitHub Actions）⭐️
 ├── SETUP_GOOGLE_SHEETS.md            # Google Sheets APIセットアップ手順
 ├── SCRAPING_STRATEGIES.md            # スクレイピング戦略の詳細⭐️
+├── .github/workflows/
+│   └── analyze_kickstarter.yml       # GitHub Actionsワークフロー⭐️
 ├── credentials.json                  # Google認証情報（作成する、コミットしない）
 ├── token.json                        # Googleアクセストークン（自動生成、コミットしない）
 └── data/                             # データ保存ディレクトリ（自動生成）
@@ -226,9 +269,15 @@ python test_sheets.py
 
 ## 💰 コスト
 
-- **OpenAI API**: 使用量に応じて課金
+### GitHub Actions実行の場合
+- **GitHub Actions**: 月2000分まで無料（1回2〜5分 = 月400回まで無料）
+- **OpenAI API**: 1レポート約$0.01〜$0.05（使用量に応じて課金）
   - GPT-4o-mini: ~$0.15 per 1M tokens (入力)
-  - 1レポート生成: 約$0.01-0.05
+- **Google Sheets API**: 無料（制限内）
+- **合計**: 月$1〜$5程度（主にOpenAI API）
+
+### ローカル実行の場合
+- **OpenAI API**: 上記と同じ
 - **Google Sheets API**: 無料（制限内）
 - **その他**: 無料
 
