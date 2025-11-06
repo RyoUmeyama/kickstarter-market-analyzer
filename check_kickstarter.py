@@ -11,7 +11,7 @@ import time
 from datetime import datetime
 from dotenv import load_dotenv
 
-from kickstarter_scraper import KickstarterScraper
+from kickstarter_scraper_selenium import KickstarterScraperSelenium
 from openai_client import MarketReportGenerator
 from sheets_client import GoogleSheetsClient
 
@@ -48,10 +48,10 @@ def main():
     # クライアント初期化
     print("Initializing clients...")
     try:
-        scraper = KickstarterScraper()
+        scraper = KickstarterScraperSelenium(headless=True)
         generator = MarketReportGenerator(api_key=openai_api_key, model=openai_model)
         sheets_client = GoogleSheetsClient(spreadsheet_id, sheet_name)
-        print("✓ Clients initialized\n")
+        print("✓ Clients initialized (Selenium headless mode)\n")
     except Exception as e:
         print(f"❌ Error initializing clients: {e}")
         sys.exit(1)
@@ -69,75 +69,81 @@ def main():
     success_count = 0
     error_count = 0
 
-    for i, row_data in enumerate(unprocessed_rows, 1):
-        row_number = row_data['row_number']
-        url = row_data['url']
-        product_name = row_data['product_name']
-        maker_name = row_data['maker_name']
-        creator_name = row_data['creator_name']
+    try:
+        for i, row_data in enumerate(unprocessed_rows, 1):
+            row_number = row_data['row_number']
+            url = row_data['url']
+            product_name = row_data['product_name']
+            maker_name = row_data['maker_name']
+            creator_name = row_data['creator_name']
 
-        print(f"[{i}/{len(unprocessed_rows)}] Processing row {row_number}")
-        print(f"  URL: {url}")
-        print(f"  Product: {product_name}")
-        print(f"  Maker: {maker_name}\n")
+            print(f"[{i}/{len(unprocessed_rows)}] Processing row {row_number}")
+            print(f"  URL: {url}")
+            print(f"  Product: {product_name}")
+            print(f"  Maker: {maker_name}\n")
 
-        try:
-            # Step 1: Kickstarterからデータ取得
-            print("  [1/3] Scraping Kickstarter...")
-            kickstarter_data = scraper.fetch_project_data(url)
-
-            if 'error' in kickstarter_data:
-                print(f"  ⚠️  Warning: {kickstarter_data['error']}")
-                # エラーでも続行（取得できたデータで生成）
-
-            # 商品名が空の場合、スクレイピング結果を使用
-            if not product_name:
-                product_name = kickstarter_data.get('product_name', '不明')
-
-            time.sleep(2)  # レート制限対策
-
-            # Step 2: ChatGPTでレポート生成（日本語）
-            print("  [2/3] Generating Japanese report with ChatGPT...")
-            japanese_report = generator.generate_japanese_report(
-                kickstarter_data,
-                maker_name or 'メーカー名不明',
-                creator_name or 'クリエーター名不明'
-            )
-
-            time.sleep(2)  # レート制限対策
-
-            # Step 3: ChatGPTでレポート生成（英語）- オプション
-            english_report = None
-            if not debug_mode:
-                print("  [3/3] Generating English report with ChatGPT...")
-                english_report = generator.generate_english_report(
-                    kickstarter_data,
-                    maker_name or 'Unknown Maker',
-                    creator_name or 'Unknown Creator'
-                )
-                time.sleep(2)
-
-            # Step 4: Google Sheetsに書き込み
-            print("  [4/4] Writing to spreadsheet...")
-            sheets_client.write_report(row_number, japanese_report, english_report)
-
-            print(f"  ✓ Row {row_number} completed successfully\n")
-            success_count += 1
-
-        except Exception as e:
-            print(f"  ❌ Error processing row {row_number}: {e}\n")
-            error_count += 1
-
-            # エラーメッセージをスプレッドシートに書き込み
             try:
-                error_message = f"エラー: {str(e)}"
-                sheets_client.write_report(row_number, error_message)
-            except:
-                pass
+                # Step 1: Kickstarterからデータ取得
+                print("  [1/3] Scraping Kickstarter...")
+                kickstarter_data = scraper.fetch_project_data(url)
 
-        # 次の行の前に少し待機
-        if i < len(unprocessed_rows):
-            time.sleep(3)
+                if 'error' in kickstarter_data:
+                    print(f"  ⚠️  Warning: {kickstarter_data['error']}")
+                    # エラーでも続行（取得できたデータで生成）
+
+                # 商品名が空の場合、スクレイピング結果を使用
+                if not product_name:
+                    product_name = kickstarter_data.get('product_name', '不明')
+
+                time.sleep(2)  # レート制限対策
+
+                # Step 2: ChatGPTでレポート生成（日本語）
+                print("  [2/3] Generating Japanese report with ChatGPT...")
+                japanese_report = generator.generate_japanese_report(
+                    kickstarter_data,
+                    maker_name or 'メーカー名不明',
+                    creator_name or 'クリエーター名不明'
+                )
+
+                time.sleep(2)  # レート制限対策
+
+                # Step 3: ChatGPTでレポート生成（英語）- オプション
+                english_report = None
+                if not debug_mode:
+                    print("  [3/3] Generating English report with ChatGPT...")
+                    english_report = generator.generate_english_report(
+                        kickstarter_data,
+                        maker_name or 'Unknown Maker',
+                        creator_name or 'Unknown Creator'
+                    )
+                    time.sleep(2)
+
+                # Step 4: Google Sheetsに書き込み
+                print("  [4/4] Writing to spreadsheet...")
+                sheets_client.write_report(row_number, japanese_report, english_report)
+
+                print(f"  ✓ Row {row_number} completed successfully\n")
+                success_count += 1
+
+            except Exception as e:
+                print(f"  ❌ Error processing row {row_number}: {e}\n")
+                error_count += 1
+
+                # エラーメッセージをスプレッドシートに書き込み
+                try:
+                    error_message = f"エラー: {str(e)}"
+                    sheets_client.write_report(row_number, error_message)
+                except:
+                    pass
+
+            # 次の行の前に少し待機
+            if i < len(unprocessed_rows):
+                time.sleep(3)
+
+    finally:
+        # Seleniumドライバーをクリーンアップ
+        print("\nCleaning up resources...")
+        scraper.close()
 
     # サマリー
     print("=" * 60)
