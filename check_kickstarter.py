@@ -146,7 +146,7 @@ def main():
 
                 # Step 4: Google Sheetsに書き込み
                 print("  [4/4] Writing to spreadsheet...")
-                print(f"    Writing to row {row_number} (I{row_number} and J{row_number})")
+                print(f"    Writing to row {row_number} (K{row_number} and L{row_number})")
                 sheets_client.write_report(row_number, japanese_report, english_report)
 
                 print(f"  ✓ Row {row_number} completed successfully\n")

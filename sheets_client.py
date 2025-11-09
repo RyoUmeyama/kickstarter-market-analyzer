@@ -107,7 +107,7 @@ class GoogleSheetsClient:
             sheet = self.service.spreadsheets()
             result = sheet.values().get(
                 spreadsheetId=self.spreadsheet_id,
-                range=f'{self.sheet_name}!A:J'
+                range=f'{self.sheet_name}!A:L'
             ).execute()
 
             values = result.get('values', [])
@@ -127,14 +127,14 @@ class GoogleSheetsClient:
             english_report (str, optional): 英語レポート
         """
         try:
-            # I列に日本語レポート
-            self._update_cell(row_number, 9, japanese_report)
-            print(f'✓ Japanese report written to I{row_number}')
+            # K列に日本語レポート
+            self._update_cell(row_number, 11, japanese_report)
+            print(f'✓ Japanese report written to K{row_number}')
 
-            # J列に英語レポート（オプション）
+            # L列に英語レポート（オプション）
             if english_report:
-                self._update_cell(row_number, 10, english_report)
-                print(f'✓ English report written to J{row_number}')
+                self._update_cell(row_number, 12, english_report)
+                print(f'✓ English report written to L{row_number}')
 
             print(f'✓ Report written to row {row_number}')
 
@@ -167,7 +167,7 @@ class GoogleSheetsClient:
 
     def get_unprocessed_rows(self):
         """
-        未処理の行を取得（I列が空、または短い文字列のみの行）
+        未処理の行を取得（K列が空、または短い文字列のみの行）
 
         Returns:
             list: (row_number, url, product_name, maker_name, creator_name) のリスト
@@ -190,12 +190,12 @@ class GoogleSheetsClient:
             product_name = row[2] if len(row) > 2 else ''
             maker_name = row[3] if len(row) > 3 else ''
             creator_name = row[4] if len(row) > 4 else ''
-            japanese_report = row[8] if len(row) > 8 else ''
+            japanese_report = row[10] if len(row) > 10 else ''
 
-            # URLがあり、I列（日本語レポート）が空、または100文字未満の場合
+            # URLがあり、K列（日本語レポート）が空、または100文字未満の場合
             # 既存データ（"done"など）を上書きして処理する
             if url and (not japanese_report or len(japanese_report.strip()) < 100):
-                print(f"  Found unprocessed row {row_number}: {url[:50]}... (I-col: '{japanese_report[:20] if japanese_report else 'empty'}')")
+                print(f"  Found unprocessed row {row_number}: {url[:50]}... (K-col: '{japanese_report[:20] if japanese_report else 'empty'}')")
                 unprocessed.append({
                     'row_number': row_number,
                     'url': url,
