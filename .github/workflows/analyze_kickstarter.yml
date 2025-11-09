@@ -5,8 +5,9 @@ on:
   workflow_dispatch:
 
   # 自動実行（毎日9:00 JST = 0:00 UTC）
-  schedule:
-    - cron: '0 0 * * *'
+  # 暴走防止のため一旦無効化
+  # schedule:
+  #   - cron: '0 0 * * *'
 
 jobs:
   analyze:
