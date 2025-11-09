@@ -107,7 +107,7 @@ class GoogleSheetsClient:
             sheet = self.service.spreadsheets()
             result = sheet.values().get(
                 spreadsheetId=self.spreadsheet_id,
-                range=f'{self.sheet_name}!A:G'
+                range=f'{self.sheet_name}!A:J'
             ).execute()
 
             values = result.get('values', [])
@@ -127,12 +127,14 @@ class GoogleSheetsClient:
             english_report (str, optional): 英語レポート
         """
         try:
-            # F列に日本語レポート
-            self._update_cell(row_number, 6, japanese_report)
+            # I列に日本語レポート
+            self._update_cell(row_number, 9, japanese_report)
+            print(f'✓ Japanese report written to I{row_number}')
 
-            # G列に英語レポート（オプション）
+            # J列に英語レポート（オプション）
             if english_report:
-                self._update_cell(row_number, 7, english_report)
+                self._update_cell(row_number, 10, english_report)
+                print(f'✓ English report written to J{row_number}')
 
             print(f'✓ Report written to row {row_number}')
 
@@ -165,7 +167,7 @@ class GoogleSheetsClient:
 
     def get_unprocessed_rows(self):
         """
-        未処理の行を取得（F列が空の行）
+        未処理の行を取得（I列が空の行）
 
         Returns:
             list: (row_number, url, product_name, maker_name, creator_name) のリスト
@@ -181,16 +183,16 @@ class GoogleSheetsClient:
             row_number = i + 1
 
             # 最低限の列数チェック
-            if len(row) < 5:
+            if len(row) < 2:
                 continue
 
             url = row[1] if len(row) > 1 else ''
             product_name = row[2] if len(row) > 2 else ''
             maker_name = row[3] if len(row) > 3 else ''
             creator_name = row[4] if len(row) > 4 else ''
-            japanese_report = row[5] if len(row) > 5 else ''
+            japanese_report = row[8] if len(row) > 8 else ''
 
-            # URLがあり、F列（日本語レポート）が空の場合
+            # URLがあり、I列（日本語レポート）が空の場合
             if url and not japanese_report:
                 unprocessed.append({
                     'row_number': row_number,

@@ -48,12 +48,25 @@ def main():
     # クライアント初期化
     print("Initializing clients...")
     try:
+        print("  - Initializing Kickstarter scraper (Selenium headless mode)...")
         scraper = KickstarterScraperSelenium(headless=True)
+        print("  ✓ Kickstarter scraper initialized")
+
+        print(f"  - Initializing OpenAI client (model: {openai_model})...")
         generator = MarketReportGenerator(api_key=openai_api_key, model=openai_model)
+        print("  ✓ OpenAI client initialized")
+
+        print(f"  - Initializing Google Sheets client...")
+        print(f"    Spreadsheet ID: {spreadsheet_id}")
+        print(f"    Sheet Name: {sheet_name}")
         sheets_client = GoogleSheetsClient(spreadsheet_id, sheet_name)
-        print("✓ Clients initialized (Selenium headless mode)\n")
+        print("  ✓ Google Sheets client initialized")
+
+        print("✓ All clients initialized successfully\n")
     except Exception as e:
         print(f"❌ Error initializing clients: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
     # 未処理の行を取得
@@ -84,12 +97,18 @@ def main():
 
             try:
                 # Step 1: Kickstarterからデータ取得
-                print("  [1/3] Scraping Kickstarter...")
+                print("  [1/4] Scraping Kickstarter...")
+                print(f"    URL: {url}")
                 kickstarter_data = scraper.fetch_project_data(url)
 
                 if 'error' in kickstarter_data:
                     print(f"  ⚠️  Warning: {kickstarter_data['error']}")
                     # エラーでも続行（取得できたデータで生成）
+                else:
+                    print(f"    ✓ Successfully scraped project data")
+                    print(f"    Product: {kickstarter_data.get('product_name', 'N/A')}")
+                    print(f"    Pledged: {kickstarter_data.get('pledged', 'N/A')}")
+                    print(f"    Backers: {kickstarter_data.get('backers', 'N/A')}")
 
                 # 商品名が空の場合、スクレイピング結果を使用
                 if not product_name:
@@ -98,28 +117,36 @@ def main():
                 time.sleep(2)  # レート制限対策
 
                 # Step 2: ChatGPTでレポート生成（日本語）
-                print("  [2/3] Generating Japanese report with ChatGPT...")
+                print("  [2/4] Generating Japanese report with ChatGPT...")
+                print(f"    Model: {openai_model}")
+                print(f"    Maker: {maker_name or 'メーカー名不明'}")
+                print(f"    Creator: {creator_name or 'クリエーター名不明'}")
                 japanese_report = generator.generate_japanese_report(
                     kickstarter_data,
                     maker_name or 'メーカー名不明',
                     creator_name or 'クリエーター名不明'
                 )
+                print(f"    ✓ Japanese report generated ({len(japanese_report)} characters)")
 
                 time.sleep(2)  # レート制限対策
 
                 # Step 3: ChatGPTでレポート生成（英語）- オプション
                 english_report = None
                 if not debug_mode:
-                    print("  [3/3] Generating English report with ChatGPT...")
+                    print("  [3/4] Generating English report with ChatGPT...")
                     english_report = generator.generate_english_report(
                         kickstarter_data,
                         maker_name or 'Unknown Maker',
                         creator_name or 'Unknown Creator'
                     )
+                    print(f"    ✓ English report generated ({len(english_report)} characters)")
                     time.sleep(2)
+                else:
+                    print("  [3/4] Skipping English report (DEBUG_MODE=true)")
 
                 # Step 4: Google Sheetsに書き込み
                 print("  [4/4] Writing to spreadsheet...")
+                print(f"    Writing to row {row_number} (I{row_number} and J{row_number})")
                 sheets_client.write_report(row_number, japanese_report, english_report)
 
                 print(f"  ✓ Row {row_number} completed successfully\n")
