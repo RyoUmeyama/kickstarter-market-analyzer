@@ -167,7 +167,7 @@ class GoogleSheetsClient:
 
     def get_unprocessed_rows(self):
         """
-        未処理の行を取得（I列が空の行）
+        未処理の行を取得（I列が空、または短い文字列のみの行）
 
         Returns:
             list: (row_number, url, product_name, maker_name, creator_name) のリスト
@@ -192,8 +192,10 @@ class GoogleSheetsClient:
             creator_name = row[4] if len(row) > 4 else ''
             japanese_report = row[8] if len(row) > 8 else ''
 
-            # URLがあり、I列（日本語レポート）が空の場合
-            if url and not japanese_report:
+            # URLがあり、I列（日本語レポート）が空、または100文字未満の場合
+            # 既存データ（"done"など）を上書きして処理する
+            if url and (not japanese_report or len(japanese_report.strip()) < 100):
+                print(f"  Found unprocessed row {row_number}: {url[:50]}... (I-col: '{japanese_report[:20] if japanese_report else 'empty'}')")
                 unprocessed.append({
                     'row_number': row_number,
                     'url': url,
