@@ -12,7 +12,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 from kickstarter_scraper_selenium import KickstarterScraperSelenium
-from openai_client import MarketReportGenerator
+from openai_client_improved import ImprovedMarketReportGenerator as MarketReportGenerator
 from sheets_client import GoogleSheetsClient
 
 
@@ -36,6 +36,7 @@ def main():
     sheet_name = os.getenv('SHEET_NAME', 'kickstarter')
     openai_api_key = os.getenv('OPENAI_API_KEY')
     openai_model = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
+    business_context = os.getenv('BUSINESS_CONTEXT', '')
 
     if not spreadsheet_id:
         print("❌ Error: SPREADSHEET_ID not set in .env")
@@ -63,6 +64,10 @@ def main():
         print("  ✓ Google Sheets client initialized")
 
         print("✓ All clients initialized successfully\n")
+
+        if business_context:
+            print(f"📝 Business Context loaded ({len(business_context)} characters)")
+            print(f"   {business_context[:100]}...\n")
     except Exception as e:
         print(f"❌ Error initializing clients: {e}")
         import traceback
@@ -121,10 +126,13 @@ def main():
                 print(f"    Model: {openai_model}")
                 print(f"    Maker: {maker_name or 'メーカー名不明'}")
                 print(f"    Creator: {creator_name or 'クリエーター名不明'}")
+                if business_context:
+                    print(f"    Business Context: {len(business_context)} characters")
                 japanese_report = generator.generate_japanese_report(
                     kickstarter_data,
                     maker_name or 'メーカー名不明',
-                    creator_name or 'クリエーター名不明'
+                    creator_name or 'クリエーター名不明',
+                    business_context
                 )
                 print(f"    ✓ Japanese report generated ({len(japanese_report)} characters)")
 

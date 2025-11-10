@@ -50,3 +50,6 @@ data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Consulting materials (client-specific)
+consulting/

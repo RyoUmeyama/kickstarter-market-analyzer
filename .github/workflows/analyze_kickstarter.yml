@@ -54,6 +54,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
           SHEET_NAME: ${{ secrets.SHEET_NAME }}
+          BUSINESS_CONTEXT: ${{ secrets.BUSINESS_CONTEXT }}
         run: |
           python check_kickstarter.py
 
