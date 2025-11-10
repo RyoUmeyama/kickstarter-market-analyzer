@@ -223,14 +223,20 @@ CEO
 ---
 
 【重要な指示】
-1. 各分析項目について、**具体的な数値・製品名・URL**を必ず含めてください
-2. 「可能性があります」「期待できます」等の曖昧な表現は避け、**定量的な根拠**を示してください
-3. 競合製品は実在する製品を調査し、**最低3-5件の具体例**を挙げてください
-4. 推測ではなく、**あなたの知識に基づく実在のデータ**を提供してください
-5. 事業者が**すぐに意思決定できる**レベルの具体性を保ってください
-6. 各価格、金額には必ず**通貨記号と桁区切り**（¥XX,XXX,XXX）を使用してください
-7. 成功確率やリスク評価には**パーセンテージ**を明示してください
-8. 文字数は2000-2500文字程度で、**詳細かつ簡潔に**まとめてください
+1. 各分析項目について、具体的な数値・製品名・URLを必ず含めてください
+2. 「可能性があります」「期待できます」等の曖昧な表現は避け、定量的な根拠を示してください
+3. 競合製品は実在する製品を調査し、最低3-5件の具体例を挙げてください
+4. 推測ではなく、あなたの知識に基づく実在のデータを提供してください
+5. 事業者がすぐに意思決定できるレベルの具体性を保ってください
+6. 各価格、金額には必ず通貨記号と桁区切り（¥XX,XXX,XXX）を使用してください
+7. 成功確率やリスク評価にはパーセンテージを明示してください
+8. 文字数は2000-2500文字程度で、詳細かつ簡潔にまとめてください
+
+【書式に関する重要な指示】
+※このレポートはメール本文として直接使用されます
+※Markdown形式（**太字**、###見出し、-箇条書き等）は使用しないでください
+※プレーンテキスト形式で、改行と段落のみで読みやすく整形してください
+※強調したい箇所は【】または「」で囲んでください
 """
 
         return prompt
@@ -360,9 +366,18 @@ Website: https://lifeupjp.com
 
 ---
 
-※Please fill in the 【Market Analysis】 section (①-④) with specific, detailed information.
-※Use bullet points for clarity.
-※Include concrete numbers and examples where possible.
+【Important Instructions】
+1. Please fill in the 【Market Analysis】 section (①-④) with specific, detailed information
+2. Include concrete numbers and examples where possible
+3. Provide specific product names, URLs, and sales figures for similar products
+4. Use quantitative data and percentages for success rates and risk assessments
+
+【Formatting Instructions】
+※This report will be used directly as email body text
+※DO NOT use Markdown formatting (**, ###, -, etc.)
+※Use plain text format with line breaks and paragraphs only
+※For emphasis, use 【】 brackets or quotation marks
+※Avoid bullet points with symbols (•, -, *) - use simple line breaks instead
 """
 
         return prompt
