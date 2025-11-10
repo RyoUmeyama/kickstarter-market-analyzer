@@ -235,6 +235,138 @@ CEO
 
         return prompt
 
+    def generate_english_report(self, kickstarter_data, maker_name, creator_name):
+        """
+        英語の市場分析レポートを生成
+
+        Args:
+            kickstarter_data (dict): Kickstarterから取得したデータ
+            maker_name (str): メーカー名
+            creator_name (str): クリエーター名
+
+        Returns:
+            str: 生成されたレポート
+        """
+        prompt = self._create_english_prompt(kickstarter_data, maker_name, creator_name)
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=4000,
+                temperature=0.7
+            )
+
+            report = response.choices[0].message.content.strip()
+            return report
+
+        except Exception as e:
+            print(f"Error generating English report: {e}")
+            return f"Error: Failed to generate report ({str(e)})"
+
+    def _create_english_prompt(self, data, maker_name, creator_name):
+        """英語プロンプトを作成"""
+        product_name = data.get('product_name', 'Unknown')
+        url = data.get('url', '')
+        pledge_amounts = data.get('pledge_amounts', 'Unknown')
+        funding_total = data.get('funding_total_usd', 0)
+        funding_jpy = data.get('funding_total_jpy', 0)
+        backers = data.get('backers', 0)
+        category = data.get('category', 'Unknown')
+        description = data.get('description', '')
+
+        prompt = f"""
+Create an English version of a market analysis report for the following Kickstarter project.
+The report should be professional, business-formal, and sent to the manufacturer.
+
+---
+【Product Information】
+Product Name: {product_name}
+Maker: {maker_name}
+Creator: {creator_name}
+Product URL: {url}
+
+【Kickstarter Data】
+Pledge Amounts: {pledge_amounts}
+Total Funding: ${funding_total:,.2f} (approx. ¥{funding_jpy:,})
+Backers: {backers:,}
+Category: {category}
+Description: {description}
+
+---
+
+Please create a report in the following format:
+
+Dear {maker_name} Sales Team,
+
+We hope this message finds you well.
+
+Following up on our previous proposal, we have conducted market research on your product's potential for expansion in the Japanese market through the following phases:
+
+{url}
+
+Phase 1: Crowdfunding
+Phase 2: E-commerce Sales (Amazon Japan, Rakuten, etc.)
+Phase 3: Distribution to Major Japanese Retailers
+
+【Market Analysis】
+
+① Current Sales Status in Japan
+(Report findings on existing crowdfunding and e-commerce presence)
+
+② Similar Products on Japanese Crowdfunding Platforms
+(Provide specific examples with funding amounts)
+
+③ Recommended Pricing Strategy for Japanese Crowdfunding
+(Suggest appropriate pricing based on Kickstarter data and Japanese market)
+
+④ Sales Forecast and Success Potential
+(Provide specific projections, success rate, and key considerations)
+
+---
+
+Based on these findings, we believe your product has significant potential in the Japanese market.
+
+To ensure success on Japanese crowdfunding platforms, we recommend:
+• Building a customer base before the campaign launch
+• Implementing targeted advertising based on product characteristics
+
+Our team is part of "OMP," one of Japan's leading crowdfunding agencies, with numerous successful campaigns.
+Please find our achievements and case studies below:
+
+■Official Website
+https://lifeupjp.com
+
+■Japan's Crowdfunding Achievements
+https://drive.google.com/file/d/1jUMMmlFATSFfxlxrbhrNdmIsnAtQZQ9T/view?usp=sharing
+
+■Amazon Japan Results
+https://drive.google.com/file/d/1zXLVoLLy3DEBAHgDQ0nHCtu_0xicDRMr/view?usp=sharing
+
+We would be happy to provide a more detailed market report and discuss this opportunity via Zoom at your convenience.
+
+Looking forward to hearing from you.
+
+Best regards,
+Koki Oshima
+CEO
+Life Support Co., Ltd.
+4F Garden Court Ikebukuro, 3-11-12 Nishi-Ikebukuro, Toshima-ku, Tokyo 〒171-0021 Japan
+Phone: +81-90-4606-2523
+Email: contact@lifeupjp.com
+Website: https://lifeupjp.com
+
+---
+
+※Please fill in the 【Market Analysis】 section (①-④) with specific, detailed information.
+※Use bullet points for clarity.
+※Include concrete numbers and examples where possible.
+"""
+
+        return prompt
+
 
 def test_improved_openai():
     """改善版OpenAI APIのテスト"""
