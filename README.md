@@ -156,8 +156,13 @@ RECIPIENT_EMAIL=recipient@gmail.com
 | C | 商品名 | 手動（または自動取得） |
 | D | メーカー名 | 手動 |
 | E | クリエーター名 | 手動 |
-| F | 日本語レポート | 自動生成 |
-| G | 英語レポート | 自動生成 |
+| F〜J | （任意・既存データ用） | 手動 |
+| K | 日本語レポート | 自動生成 |
+| L | 英語レポート | 自動生成 |
+
+**注意**:
+- K列（日本語レポート）が空、または100文字未満の場合に未処理として検出されます
+- 既存の長いレポート（100文字以上）は再処理されません
 
 ## 🔧 使い方
 
@@ -203,6 +208,7 @@ kickstarter-market-analyzer/
 ├── SETUP_FOR_CLIENT.md               # クライアント向けセットアップガイド（GitHub Actions）⭐️
 ├── SETUP_GOOGLE_SHEETS.md            # Google Sheets APIセットアップ手順
 ├── SCRAPING_STRATEGIES.md            # スクレイピング戦略の詳細⭐️
+├── SPREADSHEET_STRUCTURE.md          # スプレッドシート構造の詳細⭐️
 ├── .github/workflows/
 │   └── analyze_kickstarter.yml       # GitHub Actionsワークフロー⭐️
 ├── credentials.json                  # Google認証情報（作成する、コミットしない）
