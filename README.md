@@ -269,13 +269,10 @@ python check_kickstarter.py
 ```
 kickstarter-market-analyzer/
 ├── check_kickstarter.py              # メインスクリプト
-├── kickstarter_scraper.py            # Kickstarterスクレイピング（Requests版・参考）
-├── kickstarter_scraper_selenium.py   # Kickstarterスクレイピング（Selenium版・推奨）⭐️
-├── openai_client.py                  # OpenAI API連携（現行版）
-├── openai_client_improved.py         # OpenAI API連携（改善版・事業者目線の詳細分析）⭐️ **NEW**
+├── kickstarter_scraper_selenium.py   # Kickstarterスクレイピング（Selenium版）⭐️
+├── openai_client.py                  # OpenAI API連携（フォールバック用）
+├── openai_client_improved.py         # OpenAI API連携（改善版・事業者目線の詳細分析）⭐️
 ├── sheets_client.py                  # Google Sheets連携（OAuth & サービスアカウント対応）
-├── convert_to_docx.py                # Markdown → Word変換スクリプト
-├── generate_html.py                  # Markdown → HTML変換スクリプト（Bootstrap付き）⭐️
 ├── requirements.txt                  # Python依存関係
 ├── .env.example                      # 環境変数サンプル
 ├── .env                              # 環境変数（作成する、コミットしない）
@@ -285,20 +282,14 @@ kickstarter-market-analyzer/
 ├── SETUP_GOOGLE_SHEETS.md            # Google Sheets APIセットアップ手順
 ├── SCRAPING_STRATEGIES.md            # スクレイピング戦略の詳細⭐️
 ├── SPREADSHEET_STRUCTURE.md          # スプレッドシート構造の詳細⭐️
-├── COST_ESTIMATE_FINAL.md            # 最終コスト見積もり（実測値ベース）⭐️ **NEW**
-├── TOKEN_USAGE_ANALYSIS.md           # トークン使用量の詳細分析⭐️ **NEW**
+├── COST_ESTIMATE_FINAL.md            # 最終コスト見積もり（実測値ベース）⭐️
+├── TOKEN_USAGE_ANALYSIS.md           # トークン使用量の詳細分析⭐️
 ├── .github/workflows/
 │   └── analyze_kickstarter.yml       # GitHub Actionsワークフロー⭐️
 ├── consulting/                       # コンサルティング資料（.gitignore対象）⭐️
 │   ├── README.md                     # 使い方ガイド
-│   ├── PROMPT_IMPROVEMENT_ANALYSIS.md # プロンプト改善の詳細分析⭐️ **NEW**
-│   ├── PROMPT_COMPARISON.md          # 現行版 vs 改善版の比較⭐️ **NEW**
-│   ├── IMPLEMENTATION_GUIDE.md       # 改善版プロンプトの実装ガイド⭐️ **NEW**
-│   ├── SHARING_GUIDE.md              # Markdown共有方法（HackMD等）⭐️
-│   ├── *.docx                        # Word形式の資料（ITリテラシーが高くない方向け）
-│   ├── *.html                        # HTML形式の資料（ブラウザで閲覧）
-│   ├── *.md                          # Markdown形式の資料
-│   └── *.csv                         # Google Sheets用CSV
+│   ├── genspark-prompt.md            # Genspark/Gamma用プレゼン資料プロンプト（実測値版）
+│   └── YYYY-MM-DD-agenda.md          # 日付別コンサルティングアジェンダ（HackMD共有用）
 ├── credentials.json                  # Google認証情報（作成する、コミットしない）
 ├── token.json                        # Googleアクセストークン（自動生成、コミットしない）
 └── data/                             # データ保存ディレクトリ（自動生成）
