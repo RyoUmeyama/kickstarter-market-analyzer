@@ -129,21 +129,24 @@ class ReportGenerator:
             processed_body_template = self._replace_placeholders(body_template, kickstarter_url, product_name)
 
             # プロンプト + 本文テンプレートを組み合わせる
-            combined_prompt = f"""以下は、本文テンプレートと分析指示です。
+            combined_prompt = f"""以下は、英語の本文テンプレートと日本語の分析指示です。
 
-【本文テンプレート】
+【Email Body Template (English)】
 {processed_body_template}
 
-【分析指示】
+【Analysis Instructions (Japanese)】
 {processed_prompt}
 
-上記の本文テンプレート内の「{{{{レポート}}}}」部分に、分析指示に従って生成したレポートを挿入し、完全な本文を英語で出力してください。
-本文テンプレート全体を保持し、{{{{レポート}}}}の箇所だけを分析結果で置き換えてください。
+IMPORTANT INSTRUCTIONS:
+- Generate the COMPLETE email body in ENGLISH ONLY
+- Insert the analysis results into the template where {{{{レポート}}}} appears
+- Keep the entire template structure in English
+- Replace ONLY the {{{{レポート}}}} section with the analysis results
+- Do NOT include Subject: line - output email body only
+- Use plain text URLs (https://...), NOT markdown links [text](url)
+- Output must be ready for copy-paste into an email client
 
-重要な注意事項：
-- 件名（Subject:）は出力しないでください。本文のみを出力してください。
-- リンクはマークダウン形式ではなく、プレーンテキストのURL（https://...）として出力してください。
-- メール本文として、そのままコピー＆ペーストできる形式で出力してください。"""
+OUTPUT LANGUAGE: ENGLISH ONLY (英語のみで出力してください)"""
 
             print(f"  🤖 Calling OpenAI API with template + prompt to generate complete English body...")
 
@@ -153,7 +156,23 @@ class ReportGenerator:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a professional business consultant. You will receive a message template and analysis instructions in Japanese. Please generate ONLY the email body (not the subject line) in English by inserting the analysis results into the template where {{レポート}} appears. Use plain text URLs, not markdown links."
+                        "content": """You are a professional market research analyst and business consultant specializing in the Japanese market.
+
+ANALYSIS REQUIREMENTS:
+1. Provide SPECIFIC and DETAILED data with concrete numbers
+2. Include REAL product examples with specific names and URLs
+3. Cite ACTUAL information sources with plain text URLs (e.g., https://www.makuake.com/project/...)
+4. Include specific pricing data, sales figures, and backer numbers
+5. Provide detailed competitor analysis with product names and performance metrics
+6. Give realistic market forecasts based on similar product performance
+
+OUTPUT FORMAT:
+- Generate the complete email body in ENGLISH ONLY
+- Insert detailed analysis results where {{レポート}} appears in the template
+- DO NOT translate the template to Japanese - keep everything in ENGLISH
+- Output ONLY the email body (no subject line)
+- Use plain text URLs, NOT markdown links [text](url)
+- Be professional, specific, and data-driven in your analysis"""
                     },
                     {
                         "role": "user",
