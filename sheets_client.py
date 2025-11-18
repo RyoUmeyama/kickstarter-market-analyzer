@@ -129,11 +129,13 @@ class GoogleSheetsClient:
         レポート（件名+本文）をスプレッドシートに書き込み
 
         新列構成: A=NO, B=product_url, C=template, D=name, E=to_email,
-                 F=jp_subject, G=en_subject, H=jp_body, I=en_body
+                 F=jp_subject, G=en_subject, H=jp_body, I=en_body,
+                 J=jp_body_html, K=en_body_html
 
         仕様:
         - japanese_bodyが空文字列の場合、H列にGOOGLETRANSLATE関数を設定
         - japanese_bodyに値がある場合、H列にそのまま値を書き込み
+        - J列とK列にはHTML形式（改行を<br>に変換）を書き込み
 
         Args:
             row_number (int): 行番号（1始まり）
@@ -166,10 +168,51 @@ class GoogleSheetsClient:
                 self._update_cell_formula(row_number, 8, formula)
                 print(f'✓ GOOGLETRANSLATE formula written to H{row_number}')
 
+            # K列に英語本文HTML版（改行を<br>に変換）
+            en_body_html = self._convert_to_html(english_body)
+            self._update_cell(row_number, 11, en_body_html)
+            print(f'✓ English body (HTML) written to K{row_number}')
+
+            # J列に日本語本文HTML版（値 or GOOGLETRANSLATE関数）
+            if japanese_body and japanese_body.strip():
+                jp_body_html = self._convert_to_html(japanese_body)
+                self._update_cell(row_number, 10, jp_body_html)
+                print(f'✓ Japanese body (HTML) written to J{row_number}')
+            else:
+                # 空の場合はGOOGLETRANSLATE関数を設定
+                formula = f'=IF(I{row_number}="", "", SUBSTITUTE(GOOGLETRANSLATE(I{row_number}, "en", "ja"), CHAR(10), "<br>"))'
+                self._update_cell_formula(row_number, 10, formula)
+                print(f'✓ GOOGLETRANSLATE + HTML formula written to J{row_number}')
+
             print(f'✓ Report written to row {row_number}')
 
         except HttpError as err:
             print(f'Error writing to spreadsheet: {err}')
+
+    def _convert_to_html(self, text):
+        """
+        プレーンテキストをHTML形式に変換
+        - 改行を<br>に変換
+        - 特殊文字をエスケープ（&, <, >）
+
+        Args:
+            text (str): プレーンテキスト
+
+        Returns:
+            str: HTML形式のテキスト
+        """
+        if not text:
+            return ''
+
+        # 特殊文字をエスケープ
+        text = text.replace('&', '&amp;')
+        text = text.replace('<', '&lt;')
+        text = text.replace('>', '&gt;')
+
+        # 改行を<br>に変換
+        text = text.replace('\n', '<br>')
+
+        return text
 
     def _update_cell(self, row, col, value):
         """
