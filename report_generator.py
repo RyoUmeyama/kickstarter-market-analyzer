@@ -138,7 +138,12 @@ class ReportGenerator:
 {processed_prompt}
 
 上記の本文テンプレート内の「{{{{レポート}}}}」部分に、分析指示に従って生成したレポートを挿入し、完全な本文を英語で出力してください。
-本文テンプレート全体を保持し、{{{{レポート}}}}の箇所だけを分析結果で置き換えてください。"""
+本文テンプレート全体を保持し、{{{{レポート}}}}の箇所だけを分析結果で置き換えてください。
+
+重要な注意事項：
+- 件名（Subject:）は出力しないでください。本文のみを出力してください。
+- リンクはマークダウン形式ではなく、プレーンテキストのURL（https://...）として出力してください。
+- メール本文として、そのままコピー＆ペーストできる形式で出力してください。"""
 
             print(f"  🤖 Calling OpenAI API with template + prompt to generate complete English body...")
 
@@ -148,7 +153,7 @@ class ReportGenerator:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a professional business consultant. You will receive a message template and analysis instructions in Japanese. Please generate a complete English message by inserting the analysis results into the template where {{レポート}} appears."
+                        "content": "You are a professional business consultant. You will receive a message template and analysis instructions in Japanese. Please generate ONLY the email body (not the subject line) in English by inserting the analysis results into the template where {{レポート}} appears. Use plain text URLs, not markdown links."
                     },
                     {
                         "role": "user",
@@ -161,6 +166,9 @@ class ReportGenerator:
 
             generated_body = response.choices[0].message.content.strip()
             print(f"  ✓ Complete English body generated via OpenAI API")
+
+            # 後処理: 件名行を削除、マークダウンリンクをプレーンテキストに変換
+            generated_body = self._clean_generated_body(generated_body)
 
             return generated_body
 
@@ -223,6 +231,46 @@ class ReportGenerator:
             print(f"  ❌ Error calling OpenAI API: {e}")
             print(f"  ⚠️  Falling back to template body")
             return self._replace_placeholders(body_template, kickstarter_url, product_name)
+
+    def _clean_generated_body(self, text):
+        """
+        生成された本文をクリーンアップ
+        - 件名行（Subject:）を削除
+        - マークダウンリンク [text](url) をプレーンテキスト url に変換
+
+        Args:
+            text (str): 生成された本文
+
+        Returns:
+            str: クリーンアップされた本文
+        """
+        import re
+
+        # 件名行を削除（Subject: で始まる行とその後の空行）
+        lines = text.split('\n')
+        cleaned_lines = []
+        skip_next_empty = False
+
+        for line in lines:
+            # Subject: で始まる行をスキップ
+            if line.strip().startswith('Subject:'):
+                skip_next_empty = True
+                continue
+
+            # Subject: の後の空行をスキップ
+            if skip_next_empty and line.strip() == '':
+                skip_next_empty = False
+                continue
+
+            cleaned_lines.append(line)
+
+        text = '\n'.join(cleaned_lines)
+
+        # マークダウンリンク [text](url) を url に変換
+        # 例: [Life Support](https://lifeupjp.com) → https://lifeupjp.com
+        text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'\2', text)
+
+        return text.strip()
 
     def _replace_placeholders(self, text, kickstarter_url, product_name):
         """
