@@ -124,16 +124,16 @@ class GoogleSheetsClient:
             print(f'Error reading spreadsheet: {err}')
             return []
 
-    def write_report(self, row_number, jp_subject, en_subject, japanese_body, english_body, status='完了'):
+    def write_report(self, row_number, jp_subject, en_subject, japanese_body, english_body):
         """
         レポート（件名+本文）をスプレッドシートに書き込み
 
         新列構成: A=NO, B=product_url, C=template, D=name, E=to_email,
-                 F=jp_subject, G=en_subject, H=status, I=jp_body, J=en_body
+                 F=jp_subject, G=en_subject, H=jp_body, I=en_body
 
         仕様:
-        - japanese_bodyが空文字列の場合、I列にGOOGLETRANSLATE関数を設定
-        - japanese_bodyに値がある場合、I列にそのまま値を書き込み
+        - japanese_bodyが空文字列の場合、H列にGOOGLETRANSLATE関数を設定
+        - japanese_bodyに値がある場合、H列にそのまま値を書き込み
 
         Args:
             row_number (int): 行番号（1始まり）
@@ -141,7 +141,6 @@ class GoogleSheetsClient:
             en_subject (str): 英語件名
             japanese_body (str): 日本語本文（空文字列の場合は関数を設定）
             english_body (str): 英語本文
-            status (str, optional): ステータス（デフォルト: '完了'）
         """
         try:
             # F列に日本語件名
@@ -152,24 +151,20 @@ class GoogleSheetsClient:
             self._update_cell(row_number, 7, en_subject)
             print(f'✓ English subject written to G{row_number}')
 
-            # H列にステータス
-            self._update_cell(row_number, 8, status)
-            print(f'✓ Status written to H{row_number}: {status}')
+            # I列に英語本文（先に書き込む）
+            self._update_cell(row_number, 9, english_body)
+            print(f'✓ English body written to I{row_number}')
 
-            # J列に英語本文（先に書き込む）
-            self._update_cell(row_number, 10, english_body)
-            print(f'✓ English body written to J{row_number}')
-
-            # I列に日本語本文（値 or GOOGLETRANSLATE関数）
+            # H列に日本語本文（値 or GOOGLETRANSLATE関数）
             if japanese_body and japanese_body.strip():
                 # 値がある場合はそのまま書き込み
-                self._update_cell(row_number, 9, japanese_body)
-                print(f'✓ Japanese body written to I{row_number}')
+                self._update_cell(row_number, 8, japanese_body)
+                print(f'✓ Japanese body written to H{row_number}')
             else:
                 # 空の場合はGOOGLETRANSLATE関数を設定
-                formula = f'=IF(J{row_number}="", "", GOOGLETRANSLATE(J{row_number}, "en", "ja"))'
-                self._update_cell_formula(row_number, 9, formula)
-                print(f'✓ GOOGLETRANSLATE formula written to I{row_number}')
+                formula = f'=IF(I{row_number}="", "", GOOGLETRANSLATE(I{row_number}, "en", "ja"))'
+                self._update_cell_formula(row_number, 8, formula)
+                print(f'✓ GOOGLETRANSLATE formula written to H{row_number}')
 
             print(f'✓ Report written to row {row_number}')
 
@@ -315,10 +310,10 @@ class GoogleSheetsClient:
 
     def get_unprocessed_rows(self):
         """
-        未処理の行を取得（I列（jp_body）が空、または短い文字列のみの行）
+        未処理の行を取得（H列（jp_body）が空、または短い文字列のみの行）
 
         新列構成: A=NO, B=product_url, C=template, D=name, E=to_email,
-                 F=jp_subject, G=en_subject, H=status, I=jp_body, J=en_body
+                 F=jp_subject, G=en_subject, H=jp_body, I=en_body
 
         Returns:
             list: 未処理行の情報リスト
@@ -333,7 +328,7 @@ class GoogleSheetsClient:
                     ...
                 ]
         """
-        rows = self.read_rows(sheet_name=self.sheet_name, column_range='A:J')
+        rows = self.read_rows(sheet_name=self.sheet_name, column_range='A:I')
         unprocessed = []
 
         for i, row in enumerate(rows):
@@ -351,12 +346,12 @@ class GoogleSheetsClient:
             template = row[2] if len(row) > 2 else ''
             name = row[3] if len(row) > 3 else ''
             to_email = row[4] if len(row) > 4 else ''
-            jp_body = row[8] if len(row) > 8 else ''  # I列
+            jp_body = row[7] if len(row) > 7 else ''  # H列
 
-            # URLがあり、I列（日本語本文）が空、または100文字未満の場合
+            # URLがあり、H列（日本語本文）が空、または100文字未満の場合
             # 既存データ（"done"など）を上書きして処理する
             if url and (not jp_body or len(jp_body.strip()) < 100):
-                print(f"  Found unprocessed row {row_number}: {url[:50]}... (I-col: '{jp_body[:20] if jp_body else 'empty'}')")
+                print(f"  Found unprocessed row {row_number}: {url[:50]}... (H-col: '{jp_body[:20] if jp_body else 'empty'}')")
                 unprocessed.append({
                     'row_number': row_number,
                     'url': url,

@@ -98,8 +98,7 @@ def main():
                 jp_subject=report['jp_subject'],
                 en_subject=report['en_subject'],
                 japanese_body=report['jp_body'],
-                english_body=report['en_body'],
-                status='完了'
+                english_body=report['en_body']
             )
             print(f"✓ 書き込み完了！")
 
@@ -115,8 +114,7 @@ def main():
                     jp_subject=f"エラー",
                     en_subject=f"Error",
                     japanese_body=f"エラー: {str(e)}",
-                    english_body=f"Error: {str(e)}",
-                    status='エラー'
+                    english_body=f"Error: {str(e)}"
                 )
             except:
                 pass
