@@ -88,10 +88,11 @@ class ReportGenerator:
                 product_name
             )
         else:
-            # プロンプトがある場合: OpenAI APIで英語レポートを生成
-            # jp_bodyは空文字列（Google SheetsでGOOGLETRANSLATE関数を使って翻訳してもらう）
+            # プロンプトがある場合: A2の本文テンプレート + A3のプロンプトをOpenAI APIに投げる
+            # → 完全な英語本文（レポート込み）を生成
             en_body = self._generate_from_prompt(
                 prompt,
+                template['en_body'],  # A2の本文テンプレート
                 kickstarter_url,
                 product_name
             )
@@ -105,49 +106,63 @@ class ReportGenerator:
             'en_body': en_body
         }
 
-    def _generate_from_prompt(self, prompt, kickstarter_url, product_name):
+    def _generate_from_prompt(self, prompt, body_template, kickstarter_url, product_name):
         """
-        日本語プロンプトからOpenAI APIで英語レポートを生成
+        日本語プロンプト + 本文テンプレートからOpenAI APIで完全な英語本文を生成
 
         Args:
-            prompt (str): プロンプト（日本語）
+            prompt (str): プロンプト（日本語、A3）
+            body_template (str): 本文テンプレート（英語、A2）
             kickstarter_url (str): Kickstarter URL
             product_name (str): 製品名/メーカー名
 
         Returns:
-            str: 生成された英語レポート
+            str: 生成された完全な英語本文（レポート込み）
         """
         if not self.api_available:
             print(f"  ⚠️  OpenAI API key not configured. Cannot generate report from prompt.")
             return "Error: OpenAI API key not configured"
 
         try:
-            # プロンプトのプレースホルダーを置換
+            # プロンプトと本文テンプレートのプレースホルダーを置換
             processed_prompt = self._replace_placeholders(prompt, kickstarter_url, product_name)
+            processed_body_template = self._replace_placeholders(body_template, kickstarter_url, product_name)
 
-            print(f"  🤖 Calling OpenAI API with Japanese prompt to generate English report...")
+            # プロンプト + 本文テンプレートを組み合わせる
+            combined_prompt = f"""以下は、本文テンプレートと分析指示です。
 
-            # OpenAI APIを呼び出し（日本語プロンプト → 英語レポート）
+【本文テンプレート】
+{processed_body_template}
+
+【分析指示】
+{processed_prompt}
+
+上記の本文テンプレート内の「{{{{レポート}}}}」部分に、分析指示に従って生成したレポートを挿入し、完全な本文を英語で出力してください。
+本文テンプレート全体を保持し、{{{{レポート}}}}の箇所だけを分析結果で置き換えてください。"""
+
+            print(f"  🤖 Calling OpenAI API with template + prompt to generate complete English body...")
+
+            # OpenAI APIを呼び出し（日本語プロンプト + 英語テンプレート → 完全な英語本文）
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a professional business consultant. The user will provide a prompt in Japanese. Please respond in English with a detailed business report."
+                        "content": "You are a professional business consultant. You will receive a message template and analysis instructions in Japanese. Please generate a complete English message by inserting the analysis results into the template where {{レポート}} appears."
                     },
                     {
                         "role": "user",
-                        "content": processed_prompt
+                        "content": combined_prompt
                     }
                 ],
                 max_tokens=4000,
                 temperature=0.7
             )
 
-            generated_report = response.choices[0].message.content.strip()
-            print(f"  ✓ English report generated via OpenAI API")
+            generated_body = response.choices[0].message.content.strip()
+            print(f"  ✓ Complete English body generated via OpenAI API")
 
-            return generated_report
+            return generated_body
 
         except Exception as e:
             print(f"  ❌ Error calling OpenAI API: {e}")
