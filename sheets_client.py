@@ -96,18 +96,25 @@ class GoogleSheetsClient:
 
         return build('sheets', 'v4', credentials=creds)
 
-    def read_rows(self):
+    def read_rows(self, sheet_name=None, column_range='A:L'):
         """
         スプレッドシートから全行を読み取り
+
+        Args:
+            sheet_name (str, optional): シート名（指定しない場合はself.sheet_nameを使用）
+            column_range (str, optional): 列範囲（デフォルト: A:L）
 
         Returns:
             list: 行データのリスト
         """
+        if sheet_name is None:
+            sheet_name = self.sheet_name
+
         try:
             sheet = self.service.spreadsheets()
             result = sheet.values().get(
                 spreadsheetId=self.spreadsheet_id,
-                range=f'{self.sheet_name}!A:L'
+                range=f'{sheet_name}!{column_range}'
             ).execute()
 
             values = result.get('values', [])
@@ -117,24 +124,52 @@ class GoogleSheetsClient:
             print(f'Error reading spreadsheet: {err}')
             return []
 
-    def write_report(self, row_number, japanese_report, english_report=None):
+    def write_report(self, row_number, jp_subject, en_subject, japanese_body, english_body, status='完了'):
         """
-        レポートをスプレッドシートに書き込み
+        レポート（件名+本文）をスプレッドシートに書き込み
+
+        新列構成: A=NO, B=product_url, C=template, D=name, E=to_email,
+                 F=jp_subject, G=en_subject, H=status, I=jp_body, J=en_body
+
+        仕様:
+        - japanese_bodyが空文字列の場合、I列にGOOGLETRANSLATE関数を設定
+        - japanese_bodyに値がある場合、I列にそのまま値を書き込み
 
         Args:
             row_number (int): 行番号（1始まり）
-            japanese_report (str): 日本語レポート
-            english_report (str, optional): 英語レポート
+            jp_subject (str): 日本語件名
+            en_subject (str): 英語件名
+            japanese_body (str): 日本語本文（空文字列の場合は関数を設定）
+            english_body (str): 英語本文
+            status (str, optional): ステータス（デフォルト: '完了'）
         """
         try:
-            # K列に日本語レポート
-            self._update_cell(row_number, 11, japanese_report)
-            print(f'✓ Japanese report written to K{row_number}')
+            # F列に日本語件名
+            self._update_cell(row_number, 6, jp_subject)
+            print(f'✓ Japanese subject written to F{row_number}')
 
-            # L列に英語レポート（オプション）
-            if english_report:
-                self._update_cell(row_number, 12, english_report)
-                print(f'✓ English report written to L{row_number}')
+            # G列に英語件名
+            self._update_cell(row_number, 7, en_subject)
+            print(f'✓ English subject written to G{row_number}')
+
+            # H列にステータス
+            self._update_cell(row_number, 8, status)
+            print(f'✓ Status written to H{row_number}: {status}')
+
+            # J列に英語本文（先に書き込む）
+            self._update_cell(row_number, 10, english_body)
+            print(f'✓ English body written to J{row_number}')
+
+            # I列に日本語本文（値 or GOOGLETRANSLATE関数）
+            if japanese_body and japanese_body.strip():
+                # 値がある場合はそのまま書き込み
+                self._update_cell(row_number, 9, japanese_body)
+                print(f'✓ Japanese body written to I{row_number}')
+            else:
+                # 空の場合はGOOGLETRANSLATE関数を設定
+                formula = f'=IF(J{row_number}="", "", GOOGLETRANSLATE(J{row_number}, "en", "ja"))'
+                self._update_cell_formula(row_number, 9, formula)
+                print(f'✓ GOOGLETRANSLATE formula written to I{row_number}')
 
             print(f'✓ Report written to row {row_number}')
 
@@ -143,7 +178,7 @@ class GoogleSheetsClient:
 
     def _update_cell(self, row, col, value):
         """
-        特定のセルを更新
+        特定のセルに値を更新
 
         Args:
             row (int): 行番号（1始まり）
@@ -165,14 +200,140 @@ class GoogleSheetsClient:
             body=body
         ).execute()
 
-    def get_unprocessed_rows(self):
+    def _update_cell_formula(self, row, col, formula):
         """
-        未処理の行を取得（K列が空、または短い文字列のみの行）
+        特定のセルに数式を設定
+
+        Args:
+            row (int): 行番号（1始まり）
+            col (int): 列番号（1始まり、A=1, B=2, ...）
+            formula (str): 数式（例: "=SUM(A1:A10)"）
+        """
+        # 列番号を列名に変換（A, B, C, ...）
+        col_letter = chr(64 + col)  # A=65
+        range_name = f'{self.sheet_name}!{col_letter}{row}'
+
+        body = {
+            'values': [[formula]]
+        }
+
+        # USER_ENTEREDを使用すると数式として解釈される
+        self.service.spreadsheets().values().update(
+            spreadsheetId=self.spreadsheet_id,
+            range=range_name,
+            valueInputOption='USER_ENTERED',
+            body=body
+        ).execute()
+
+    def get_all_sheet_names(self):
+        """
+        スプレッドシート内の全シート名を取得
 
         Returns:
-            list: (row_number, url, product_name, maker_name, creator_name) のリスト
+            list: シート名のリスト
         """
-        rows = self.read_rows()
+        try:
+            spreadsheet = self.service.spreadsheets().get(
+                spreadsheetId=self.spreadsheet_id
+            ).execute()
+
+            sheets = spreadsheet.get('sheets', [])
+            sheet_names = []
+
+            for sheet in sheets:
+                properties = sheet.get('properties', {})
+                sheet_name = properties.get('title', '')
+                sheet_names.append(sheet_name)
+
+            return sheet_names
+
+        except HttpError as err:
+            print(f'Error getting sheet names: {err}')
+            return []
+
+    def read_template(self, template_name):
+        """
+        テンプレートシートから設定を読み取る
+
+        Args:
+            template_name (str): テンプレート名（シート名）
+
+        Returns:
+            dict: テンプレート設定
+                {
+                    'name': テンプレート名,
+                    'en_subject': 英語メール件名（A1セル）,
+                    'jp_subject': 日本語メール件名（B1セル）,
+                    'en_body': 英語メール本文（A2セル）,
+                    'jp_body': 日本語メール本文（B2セル）,
+                    'en_prompt': 英語用OpenAIプロンプト（A3セル、任意）,
+                    'jp_prompt': 日本語用OpenAIプロンプト（B3セル、任意）
+                }
+        """
+        try:
+            # テンプレートシートから最初の3行を読み取り
+            # A:B列を取得
+            rows = self.read_rows(sheet_name=template_name, column_range='A:B')
+
+            if len(rows) < 2:
+                print(f'Warning: Template sheet "{template_name}" has insufficient rows')
+                return None
+
+            # 1行目: 件名
+            row1 = rows[0]
+            en_subject = row1[0] if len(row1) > 0 else ''
+            jp_subject = row1[1] if len(row1) > 1 else ''
+
+            # 2行目: 本文
+            row2 = rows[1]
+            en_body = row2[0] if len(row2) > 0 else ''
+            jp_body = row2[1] if len(row2) > 1 else ''
+
+            # 3行目: OpenAIプロンプト（任意）
+            en_prompt = ''
+            jp_prompt = ''
+            if len(rows) > 2:
+                row3 = rows[2]
+                en_prompt = row3[0] if len(row3) > 0 else ''
+                jp_prompt = row3[1] if len(row3) > 1 else ''
+
+            template = {
+                'name': template_name,
+                'en_subject': en_subject,
+                'jp_subject': jp_subject,
+                'en_body': en_body,
+                'jp_body': jp_body,
+                'en_prompt': en_prompt,
+                'jp_prompt': jp_prompt
+            }
+
+            return template
+
+        except HttpError as err:
+            print(f'Error reading template "{template_name}": {err}')
+            return None
+
+    def get_unprocessed_rows(self):
+        """
+        未処理の行を取得（I列（jp_body）が空、または短い文字列のみの行）
+
+        新列構成: A=NO, B=product_url, C=template, D=name, E=to_email,
+                 F=jp_subject, G=en_subject, H=status, I=jp_body, J=en_body
+
+        Returns:
+            list: 未処理行の情報リスト
+                [
+                    {
+                        'row_number': 行番号,
+                        'url': Kickstarter URL,
+                        'template': テンプレート名,
+                        'name': 担当者名,
+                        'to_email': 送信先メールアドレス
+                    },
+                    ...
+                ]
+        """
+        rows = self.read_rows(sheet_name=self.sheet_name, column_range='A:J')
         unprocessed = []
 
         for i, row in enumerate(rows):
@@ -187,21 +348,21 @@ class GoogleSheetsClient:
                 continue
 
             url = row[1] if len(row) > 1 else ''
-            product_name = row[2] if len(row) > 2 else ''
-            maker_name = row[3] if len(row) > 3 else ''
-            creator_name = row[4] if len(row) > 4 else ''
-            japanese_report = row[10] if len(row) > 10 else ''
+            template = row[2] if len(row) > 2 else ''
+            name = row[3] if len(row) > 3 else ''
+            to_email = row[4] if len(row) > 4 else ''
+            jp_body = row[8] if len(row) > 8 else ''  # I列
 
-            # URLがあり、K列（日本語レポート）が空、または100文字未満の場合
+            # URLがあり、I列（日本語本文）が空、または100文字未満の場合
             # 既存データ（"done"など）を上書きして処理する
-            if url and (not japanese_report or len(japanese_report.strip()) < 100):
-                print(f"  Found unprocessed row {row_number}: {url[:50]}... (K-col: '{japanese_report[:20] if japanese_report else 'empty'}')")
+            if url and (not jp_body or len(jp_body.strip()) < 100):
+                print(f"  Found unprocessed row {row_number}: {url[:50]}... (I-col: '{jp_body[:20] if jp_body else 'empty'}')")
                 unprocessed.append({
                     'row_number': row_number,
                     'url': url,
-                    'product_name': product_name,
-                    'maker_name': maker_name,
-                    'creator_name': creator_name
+                    'template': template,
+                    'name': name,
+                    'to_email': to_email
                 })
 
         return unprocessed

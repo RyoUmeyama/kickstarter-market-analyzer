@@ -78,11 +78,21 @@ class ImprovedMarketReportGenerator:
 ''' if business_context else ''}
 ---
 
+【書式に関する非常に重要な指示】
+※このレポートはメール本文として直接使用されます
+※各段落の後には必ず空行（改行2回）を入れてください
+※各セクション（①、②、③等）の後には必ず空行を2行入れてください
+※箇条書きの各グループの後にも空行を入れてください
+※メールマージで使用するため、改行が非常に重要です
+※見やすさを最優先してください
+※Markdown形式は使用せず、プレーンテキスト形式で出力してください
+
 以下の形式で、**事業者目線で具体的かつ詳細な**ビジネスレポートを作成してください：
 
 {maker_name} Sales Team
 
 お世話になっております。
+
 先日ご提案に関して、以下の貴社製品の日本市場における販売拡大可能性を調査いたしました。
 
 {url}
@@ -103,6 +113,7 @@ class ImprovedMarketReportGenerator:
 - Amazon.co.jp、楽天市場での販売状況と価格帯
 - 販売チャネルごとの市場規模感
 
+
 ②日本におけるクラファンにおける類似商品の販売実績額
 
 **要求事項**:
@@ -121,6 +132,7 @@ class ImprovedMarketReportGenerator:
 - 製品B「[製品名]」(CAMPFIRE): ¥XX,XXX,XXX（202X年X月）
   ...
 
+
 ③クラファンにおける想定販売価格帯と収益性分析
 
 **要求事項**:
@@ -136,6 +148,7 @@ class ImprovedMarketReportGenerator:
 - 早割（限定100名）: ¥XX,XXX（競合より15%安）
 - 通常価格: ¥XX,XXX（市場平均価格）
 - リテール価格: ¥XX,XXX（Amazon販売時の想定）
+
 
 ④日本のクラウドファンディング実施における販売予測と成功可能性
 
@@ -168,6 +181,7 @@ class ImprovedMarketReportGenerator:
 - 競合製品に勝つための具体的な戦略
 - USP（独自の販売提案）の明確化
 
+
 ⑥フェーズ2・3への展開戦略
 
 **要求事項**:
@@ -177,19 +191,24 @@ class ImprovedMarketReportGenerator:
 - 量販店（ヨドバシ、ビックカメラ等）への卸条件
 - 長期的な市場展開ロードマップ
 
+
 ---
 
+
 これらの結果から、貴社製品には日本市場で大きな可能性があると感じております。
-また、日本のクラウドファンディングで成功を収めるためには、
-いくつかの特殊事情を考慮し、以下の事項を徹底することで成功に導くことができます。
+
+また、日本のクラウドファンディングで成功を収めるためには、いくつかの特殊事情を考慮し、以下の事項を徹底することで成功に導くことができます。
+
 ・クラウドファンディング開始前から用意周到に見込み客を獲得する。
 ・商品の特性を踏まえた広告を最大限行う。
 
-私共は、日本のクラウドファンディングで成功を収めるべく
-国内有数のチーム「OMP」に所属しており、これまで数多くの実績を収めております。
+
+私共は、日本のクラウドファンディングで成功を収めるべく国内有数のチーム「OMP」に所属しており、これまで数多くの実績を収めております。
+
 以下に、その取り組みや実績も照会させて頂いております。
-長い動画もあり、大変恐縮に存じますが、
-ご興味がございましたら、ご確認を頂ければ幸いです。
+
+長い動画もあり、大変恐縮に存じますが、ご興味がございましたら、ご確認を頂ければ幸いです。
+
 
 ■公式ウェブサイトでも当社業務についてご確認を頂けます。
 https://lifeupjp.com
@@ -206,12 +225,16 @@ https://drive.google.com/file/d/1uwW_WVQxVCHVxXxDXI5YvFF5Usg-ZZFe/view?usp=shari
 ■Pre-Launch Audience Acquisition & Advertising Group Seminar
 https://drive.google.com/file/d/1lQ3IgFPgha6CU2nB5OCb-5ZzbjiUjDRg/view?usp=sharing
 
-もしご希望がございましたら、より詳細な市場レポートをお送りすることもできますので、
-ご用命を頂ければ幸いです。
+
+もしご希望がございましたら、より詳細な市場レポートをお送りすることもできますので、ご用命を頂ければ幸いです。
+
 またズームで、より詳しく説明をさせて頂きたいと存じます。
+
 ご連絡をお待ちしております。
 
+
 敬具
+
 Koki Oshima
 CEO
 株式会社ライフサポート
@@ -231,12 +254,8 @@ CEO
 6. 各価格、金額には必ず通貨記号と桁区切り（¥XX,XXX,XXX）を使用してください
 7. 成功確率やリスク評価にはパーセンテージを明示してください
 8. 文字数は2000-2500文字程度で、詳細かつ簡潔にまとめてください
-
-【書式に関する重要な指示】
-※このレポートはメール本文として直接使用されます
-※Markdown形式（**太字**、###見出し、-箇条書き等）は使用しないでください
-※プレーンテキスト形式で、改行と段落のみで読みやすく整形してください
-※強調したい箇所は【】または「」で囲んでください
+9. 各段落の後には必ず空行（改行を2回）を入れて見やすくしてください
+10. 各セクション（①、②、③等）の間には必ず空行を2行入れてください
 """
 
         return prompt
@@ -371,13 +390,16 @@ Website: https://lifeupjp.com
 2. Include concrete numbers and examples where possible
 3. Provide specific product names, URLs, and sales figures for similar products
 4. Use quantitative data and percentages for success rates and risk assessments
+5. Add a blank line (double line break) after each paragraph for readability
+6. Add 2 blank lines between each section (①, ②, ③, ④)
 
 【Formatting Instructions】
-※This report will be used directly as email body text
+※This report will be used directly as email body text for mail merge
 ※DO NOT use Markdown formatting (**, ###, -, etc.)
 ※Use plain text format with line breaks and paragraphs only
 ※For emphasis, use 【】 brackets or quotation marks
 ※Avoid bullet points with symbols (•, -, *) - use simple line breaks instead
+※LINE BREAKS ARE CRITICAL - Please ensure blank lines between all paragraphs and sections
 """
 
         return prompt
