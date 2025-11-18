@@ -87,6 +87,10 @@ class ReportGenerator:
                 kickstarter_url,
                 product_name
             )
+
+            # プロンプトなしの場合もマークダウンリンクをクリーンアップ
+            en_body = self._clean_generated_body(en_body)
+            jp_body = self._clean_generated_body(jp_body)
         else:
             # プロンプトがある場合: A2の本文テンプレート + A3のプロンプトをOpenAI APIに投げる
             # → 完全な英語本文（レポート込み）を生成
