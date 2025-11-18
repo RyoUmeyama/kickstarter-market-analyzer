@@ -1,10 +1,7 @@
-name: Kickstarter Market Analyzer - Auto Update
+name: Kickstarter Market Analyzer - Manual Update
 
 on:
-  schedule:
-    # 毎日 9:00 JST (00:00 UTC) に実行
-    - cron: '0 0 * * *'
-  workflow_dispatch:  # 手動実行も可能
+  workflow_dispatch:  # 手動実行のみ
 
 jobs:
   update-reports:
