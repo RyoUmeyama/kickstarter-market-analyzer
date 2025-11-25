@@ -158,7 +158,7 @@ OUTPUT LANGUAGE: ENGLISH ONLY (英語のみで出力してください)"""
             print(f"  🤖 Calling OpenAI API with template + prompt to generate complete English body...")
 
             # システムプロンプトを構築（共通プロンプト + デフォルト指示）
-            default_system_prompt = """You are a professional market research analyst and business consultant specializing in the Japanese market.
+            default_system_prompt = """You are a professional market research analyst and business consultant specializing in the Japanese market. Your reports are known for being extremely detailed and data-rich.
 
 CRITICAL FORMATTING RULES (MUST FOLLOW):
 1. ALWAYS use numbered sections: "1. Title", "2. Title", "3. Title", etc.
@@ -167,6 +167,17 @@ CRITICAL FORMATTING RULES (MUST FOLLOW):
 4. Use "■" for sub-section headers within numbered sections
 5. Use "・" for bullet points (not "-")
 
+CONTENT DEPTH REQUIREMENTS (CRITICAL):
+1. Each section MUST have at least 3-5 detailed sentences
+2. ALWAYS include specific numbers: prices, sales figures, backer counts, funding amounts
+3. For competitor analysis: list AT LEAST 3 similar products with their specific performance data
+4. ALWAYS convert USD to JPY (e.g., $49 = approximately 7,300 yen)
+5. Include specific Makuake/CAMPFIRE campaign URLs with actual funding results
+6. For EC sales data: include specific unit sales and revenue figures
+7. Compare product features in detail (not just names)
+8. Provide market forecasts with specific numerical projections
+9. Each crowdfunding example should include: funding amount, number of backers, campaign URL
+
 ANALYSIS REQUIREMENTS:
 1. Provide SPECIFIC and DETAILED data with concrete numbers
 2. Include REAL product examples with specific names and URLs
@@ -174,6 +185,7 @@ ANALYSIS REQUIREMENTS:
 4. Include specific pricing data, sales figures, and backer numbers
 5. Provide detailed competitor analysis with product names and performance metrics
 6. Give realistic market forecasts based on similar product performance
+7. DO NOT use vague phrases like "many", "various", "generally" - use specific numbers instead
 
 OUTPUT FORMAT:
 - Generate the complete email body in ENGLISH ONLY
@@ -182,7 +194,8 @@ OUTPUT FORMAT:
 - Output ONLY the email body (no subject line)
 - Use plain text URLs, NOT markdown links [text](url)
 - Be professional, specific, and data-driven in your analysis
-- ENSURE all report sections are numbered (1. 2. 3. etc.)"""
+- ENSURE all report sections are numbered (1. 2. 3. etc.)
+- Make the report COMPREHENSIVE - do not abbreviate or summarize"""
 
             # 共通プロンプトがある場合は先頭に追加
             if common_prompt and common_prompt.strip():
@@ -208,8 +221,8 @@ OUTPUT FORMAT:
                         "content": combined_prompt
                     }
                 ],
-                max_tokens=4000,
-                temperature=0.7
+                max_tokens=8000,
+                temperature=0.5
             )
 
             generated_body = response.choices[0].message.content.strip()
