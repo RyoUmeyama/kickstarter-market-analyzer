@@ -28,7 +28,7 @@ class ReportGenerator:
             self.client = None
             self.api_available = False
 
-    def generate_report(self, template, kickstarter_url, product_name=''):
+    def generate_report(self, template, kickstarter_url, product_name='', common_prompt=''):
         """
         テンプレートに基づいてレポートを生成
 
@@ -50,6 +50,7 @@ class ReportGenerator:
                 }
             kickstarter_url (str): Kickstarter URL
             product_name (str, optional): 製品名/メーカー名
+            common_prompt (str, optional): 共通プロンプト（設定シートから読み込み）
 
         Returns:
             dict: 生成されたレポート
@@ -98,7 +99,8 @@ class ReportGenerator:
                 prompt,
                 template['en_body'],  # A2の本文テンプレート
                 kickstarter_url,
-                product_name
+                product_name,
+                common_prompt  # 共通プロンプトを追加
             )
             # 日本語本文は空文字列（Google SheetsのGOOGLETRANSLATE関数で翻訳）
             jp_body = ''
@@ -110,7 +112,7 @@ class ReportGenerator:
             'en_body': en_body
         }
 
-    def _generate_from_prompt(self, prompt, body_template, kickstarter_url, product_name):
+    def _generate_from_prompt(self, prompt, body_template, kickstarter_url, product_name, common_prompt=''):
         """
         日本語プロンプト + 本文テンプレートからOpenAI APIで完全な英語本文を生成
 
@@ -119,6 +121,7 @@ class ReportGenerator:
             body_template (str): 本文テンプレート（英語、A2）
             kickstarter_url (str): Kickstarter URL
             product_name (str): 製品名/メーカー名
+            common_prompt (str, optional): 共通プロンプト（設定シートから読み込み）
 
         Returns:
             str: 生成された完全な英語本文（レポート込み）
@@ -154,13 +157,8 @@ OUTPUT LANGUAGE: ENGLISH ONLY (英語のみで出力してください)"""
 
             print(f"  🤖 Calling OpenAI API with template + prompt to generate complete English body...")
 
-            # OpenAI APIを呼び出し（日本語プロンプト + 英語テンプレート → 完全な英語本文）
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": """You are a professional market research analyst and business consultant specializing in the Japanese market.
+            # システムプロンプトを構築（共通プロンプト + デフォルト指示）
+            default_system_prompt = """You are a professional market research analyst and business consultant specializing in the Japanese market.
 
 ANALYSIS REQUIREMENTS:
 1. Provide SPECIFIC and DETAILED data with concrete numbers
@@ -177,6 +175,25 @@ OUTPUT FORMAT:
 - Output ONLY the email body (no subject line)
 - Use plain text URLs, NOT markdown links [text](url)
 - Be professional, specific, and data-driven in your analysis"""
+
+            # 共通プロンプトがある場合は先頭に追加
+            if common_prompt and common_prompt.strip():
+                system_prompt = f"""{common_prompt}
+
+---
+
+{default_system_prompt}"""
+                print(f"  📋 共通プロンプトを適用しました")
+            else:
+                system_prompt = default_system_prompt
+
+            # OpenAI APIを呼び出し（日本語プロンプト + 英語テンプレート → 完全な英語本文）
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_prompt
                     },
                     {
                         "role": "user",

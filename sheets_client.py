@@ -351,6 +351,30 @@ class GoogleSheetsClient:
             print(f'Error reading template "{template_name}": {err}')
             return None
 
+    def get_common_prompt(self):
+        """
+        設定シートから共通プロンプトを読み取る
+
+        Returns:
+            str: 共通プロンプト（A2セルの内容）
+                 設定シートが存在しない場合やエラー時は空文字列を返す
+        """
+        try:
+            rows = self.read_rows(sheet_name='設定', column_range='A2:A2')
+
+            if rows and len(rows) > 0 and len(rows[0]) > 0:
+                common_prompt = rows[0][0]
+                print(f'✓ 共通プロンプトを読み込みました（{len(common_prompt)}文字）')
+                return common_prompt
+            else:
+                print('⚠️  設定シートに共通プロンプトが設定されていません')
+                return ''
+
+        except HttpError as err:
+            print(f'⚠️  設定シートの読み込みエラー: {err}')
+            print('   共通プロンプトなしで処理を続行します')
+            return ''
+
     def get_unprocessed_rows(self):
         """
         未処理の行を取得（H列（jp_body）が空、または短い文字列のみの行）

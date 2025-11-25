@@ -49,6 +49,11 @@ def main():
         print("⚠️  OpenAI APIキーが未設定 - テンプレート本文をそのまま使用します")
     print()
 
+    # 共通プロンプトを取得
+    print("共通プロンプトを読み込み中...")
+    common_prompt = sheets_client.get_common_prompt()
+    print()
+
     # 未処理の行を取得
     print("未処理の行を検索中...")
     unprocessed_rows = sheets_client.get_unprocessed_rows()
@@ -88,7 +93,8 @@ def main():
             report = report_generator.generate_report(
                 template,
                 row_data['url'],
-                product_name=row_data.get('name', '')
+                product_name=row_data.get('name', ''),
+                common_prompt=common_prompt
             )
 
             # Google Sheetsに書き込み
