@@ -1,0 +1,58 @@
+name: 管理表から抽出してメール生成
+
+on:
+  workflow_dispatch:
+    inputs:
+      status:
+        description: '抽出するステータス'
+        required: true
+        default: '➂無返信3回目　要送信'
+        type: choice
+        options:
+          - '②無返信2回目　要送信'
+          - '➂無返信3回目　要送信'
+          - '④自動返信　要送信'
+          - '⑤好返信　要送信'
+
+jobs:
+  extract-and-generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client openai python-dotenv
+
+      - name: Create .env file
+        run: |
+          echo "SPREADSHEET_ID=${{ secrets.SPREADSHEET_ID }}" >> .env
+          echo "SHEET_NAME=kickstarter" >> .env
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+          echo "MODEL=gpt-4o-mini" >> .env
+
+      - name: Create credentials.json from secret
+        run: |
+          echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > credentials.json
+
+      - name: Extract from management sheet
+        run: |
+          echo "抽出ステータス: ${{ github.event.inputs.status }}"
+          python3 extract_from_management.py --status "${{ github.event.inputs.status }}"
+
+      - name: Generate emails
+        run: |
+          python3 main.py
+
+      - name: Clean up credentials
+        if: always()
+        run: |
+          rm -f credentials.json

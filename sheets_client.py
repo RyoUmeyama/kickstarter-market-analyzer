@@ -430,6 +430,190 @@ class GoogleSheetsClient:
         return unprocessed
 
 
+# ステータス→テンプレート対応表
+STATUS_TEMPLATE_MAP = {
+    '': '①1回目送信文',
+    '新規': '①1回目送信文',
+    '①1回目送信文 要送信': '①1回目送信文',
+    '②無返信2回目　要送信': '②無返信用2回目送信',
+    '②無返信2回目 要送信': '②無返信用2回目送信',
+    '➂無返信3回目　要送信': '➂無返信3回目',
+    '③無返信3回目　要送信': '➂無返信3回目',
+    '③無返信3回目 要送信': '➂無返信3回目',
+    '④自動返信　要送信': '④自動返信用　2回目送信',
+    '④自動返信 要送信': '④自動返信用　2回目送信',
+    '⑤好返信　要送信': '⑤好返信用　詳細レポート送信',
+    '⑤好返信 要送信': '⑤好返信用　詳細レポート送信',
+}
+
+
+class ManagementSheetClient(GoogleSheetsClient):
+    """管理表専用クライアント"""
+
+    # 管理表の列定義（行11がヘッダー、行12からデータ）
+    COL_NO = 0          # A列: 番号
+    COL_STATUS = 5      # F列: 状況
+    COL_NAME = 24       # Y列: name
+    COL_EMAIL = 25      # Z列: email
+    COL_URL = 26        # AA列: URL
+    HEADER_ROW = 11
+    DATA_START_ROW = 12
+
+    def __init__(self, spreadsheet_id):
+        super().__init__(spreadsheet_id, 'kickstarter')
+        self.management_sheet = '管理表'
+
+    def get_rows_by_status(self, target_status):
+        """
+        管理表から指定ステータスの行を取得
+
+        Args:
+            target_status (str): 対象ステータス（F列の値）
+                               空文字列の場合は空白の行を取得
+
+        Returns:
+            list: 該当行のデータリスト
+                [
+                    {
+                        'row_number': 管理表での行番号,
+                        'no': 番号（A列）,
+                        'status': ステータス（F列）,
+                        'name': メーカー名（Y列）,
+                        'email': メールアドレス（Z列）,
+                        'url': Kickstarter URL（AA列）
+                    },
+                    ...
+                ]
+        """
+        try:
+            # 管理表の全データを取得（A列からAA列まで）
+            result = self.service.spreadsheets().values().get(
+                spreadsheetId=self.spreadsheet_id,
+                range=f"'{self.management_sheet}'!A{self.DATA_START_ROW}:AA1000"
+            ).execute()
+
+            values = result.get('values', [])
+            matched_rows = []
+
+            for i, row in enumerate(values):
+                row_number = self.DATA_START_ROW + i
+
+                # 各列のデータを取得（列が存在しない場合は空文字）
+                no = row[self.COL_NO] if len(row) > self.COL_NO else ''
+                status = row[self.COL_STATUS] if len(row) > self.COL_STATUS else ''
+                name = row[self.COL_NAME] if len(row) > self.COL_NAME else ''
+                email = row[self.COL_EMAIL] if len(row) > self.COL_EMAIL else ''
+                url = row[self.COL_URL] if len(row) > self.COL_URL else ''
+
+                # ステータスが一致する行を抽出
+                status_clean = status.strip()
+                target_clean = target_status.strip()
+
+                if status_clean == target_clean:
+                    # URLがKickstarter URLかどうか確認
+                    if url and 'kickstarter.com' in url.lower():
+                        matched_rows.append({
+                            'row_number': row_number,
+                            'no': no,
+                            'status': status,
+                            'name': name.strip() if name else '',
+                            'email': email.strip() if email else '',
+                            'url': url.strip() if url else ''
+                        })
+
+            return matched_rows
+
+        except HttpError as err:
+            print(f'Error reading management sheet: {err}')
+            return []
+
+    def copy_to_kickstarter_sheet(self, rows, clear_existing=True):
+        """
+        管理表から抽出した行をkickstarterシートにコピー
+
+        Args:
+            rows (list): get_rows_by_status()の戻り値
+            clear_existing (bool): 既存データをクリアするか
+
+        Returns:
+            int: コピーした行数
+        """
+        if not rows:
+            print("コピーする行がありません")
+            return 0
+
+        try:
+            if clear_existing:
+                # kickstarterシートの既存データをクリア（ヘッダー以外）
+                self.service.spreadsheets().values().clear(
+                    spreadsheetId=self.spreadsheet_id,
+                    range=f"'{self.sheet_name}'!A2:K1000"
+                ).execute()
+                print(f"✓ {self.sheet_name}シートの既存データをクリアしました")
+
+            # データを準備
+            values_to_write = []
+            for i, row in enumerate(rows, 1):
+                # ステータスからテンプレートを自動選択
+                template = STATUS_TEMPLATE_MAP.get(row['status'].strip(), '①1回目送信文')
+
+                values_to_write.append([
+                    i,                  # A: NO
+                    row['url'],         # B: product_url
+                    template,           # C: template（自動選択）
+                    row['name'],        # D: name
+                    row['email'],       # E: to_email
+                    '',                 # F: jp_subject（空）
+                    '',                 # G: en_subject（空）
+                    '',                 # H: jp_body（空）
+                    '',                 # I: en_body（空）
+                    '',                 # J: jp_body_html（空）
+                    '',                 # K: en_body_html（空）
+                ])
+
+            # kickstarterシートに書き込み
+            body = {'values': values_to_write}
+            self.service.spreadsheets().values().update(
+                spreadsheetId=self.spreadsheet_id,
+                range=f"'{self.sheet_name}'!A2:K{len(values_to_write) + 1}",
+                valueInputOption='RAW',
+                body=body
+            ).execute()
+
+            print(f"✓ {len(values_to_write)}行をkickstarterシートにコピーしました")
+            return len(values_to_write)
+
+        except HttpError as err:
+            print(f'Error copying to kickstarter sheet: {err}')
+            return 0
+
+    def get_available_statuses(self):
+        """
+        管理表で使用されている全ステータスを取得
+
+        Returns:
+            dict: ステータスと件数の辞書
+        """
+        try:
+            result = self.service.spreadsheets().values().get(
+                spreadsheetId=self.spreadsheet_id,
+                range=f"'{self.management_sheet}'!F{self.DATA_START_ROW}:F1000"
+            ).execute()
+
+            values = result.get('values', [])
+            status_count = {}
+
+            for row in values:
+                status = row[0].strip() if row and row[0] else '(空白)'
+                status_count[status] = status_count.get(status, 0) + 1
+
+            return status_count
+
+        except HttpError as err:
+            print(f'Error getting statuses: {err}')
+            return {}
+
+
 def test_sheets():
     """Google Sheets APIのテスト"""
     from dotenv import load_dotenv
