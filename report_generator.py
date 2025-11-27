@@ -2,10 +2,12 @@
 """
 レポート生成モジュール
 テンプレート + OpenAI API対応
+ウェブ検索による実在データ取得機能付き
 """
 
 import os
 from openai import OpenAI
+from market_search import MarketSearcher
 
 
 class ReportGenerator:
@@ -24,9 +26,12 @@ class ReportGenerator:
         if self.api_key and self.api_key != 'your-openai-api-key-here':
             self.client = OpenAI(api_key=self.api_key)
             self.api_available = True
+            # 市場検索クライアントを初期化
+            self.market_searcher = MarketSearcher(api_key=self.api_key, model=self.model)
         else:
             self.client = None
             self.api_available = False
+            self.market_searcher = None
 
     def generate_report(self, template, kickstarter_url, product_name='', common_prompt=''):
         """
@@ -135,14 +140,22 @@ class ReportGenerator:
             processed_prompt = self._replace_placeholders(prompt, kickstarter_url, product_name)
             processed_body_template = self._replace_placeholders(body_template, kickstarter_url, product_name)
 
-            # プロンプト + 本文テンプレートを組み合わせる
-            combined_prompt = f"""以下は、英語の本文テンプレートと日本語の分析指示です。
+            # 市場調査：類似製品を検索
+            market_research_data = ""
+            if self.market_searcher:
+                search_results = self.market_searcher.search_similar_products(kickstarter_url, product_name)
+                market_research_data = self.market_searcher.format_for_prompt(search_results)
+
+            # プロンプト + 本文テンプレート + 市場調査データを組み合わせる
+            combined_prompt = f"""以下は、英語の本文テンプレートと日本語の分析指示、および実際の市場調査データです。
 
 【Email Body Template (English)】
 {processed_body_template}
 
 【Analysis Instructions (Japanese)】
 {processed_prompt}
+
+{market_research_data}
 
 IMPORTANT INSTRUCTIONS:
 - Generate the COMPLETE email body in ENGLISH ONLY
@@ -152,6 +165,9 @@ IMPORTANT INSTRUCTIONS:
 - Do NOT include Subject: line - output email body only
 - Use plain text URLs (https://...), NOT markdown links [text](url)
 - Output must be ready for copy-paste into an email client
+- ONLY use the product data provided in the market research section above
+- If no similar products were found, mention this positively (new market opportunity)
+- NEVER invent or fabricate any product names, URLs, or funding amounts
 
 OUTPUT LANGUAGE: ENGLISH ONLY (英語のみで出力してください)"""
 
@@ -166,13 +182,15 @@ CRITICAL FORMATTING RULES (MUST FOLLOW):
 3. Use "■" for sub-section headers within numbered sections
 4. Use "・" for bullet points (not "-")
 
-EXTREMELY IMPORTANT - URL RULES:
-- You may ONLY include URLs that are explicitly provided in the input (like the Kickstarter URL)
-- NEVER generate, invent, or guess any URLs for Makuake, CAMPFIRE, Amazon, or any other website
-- NEVER use placeholder URLs like "https://www.makuake.com/project/example"
-- When mentioning similar products or campaigns, describe them by NAME and CATEGORY only
-- Example: "A similar product 'Smart Building Blocks' raised 15 million yen on Makuake with 800 backers"
-- Do NOT add any URL after mentioning a product - just the name and data is sufficient
+EXTREMELY IMPORTANT - DATA AND URL RULES:
+- You may ONLY include URLs that are explicitly provided in the input or market research data
+- NEVER generate, invent, or guess any URLs, product names, or funding amounts
+- If market research data is provided, use ONLY that data for similar products
+- If no similar products were found in market research, present this positively:
+  * Emphasize "first mover advantage" and "untapped market opportunity"
+  * Explain that lack of competition means higher potential for success
+  * Mention that being first to market allows for establishing brand leadership
+- NEVER fabricate similar product examples when none were found
 
 CONTENT DEPTH REQUIREMENTS (CRITICAL):
 1. Each section MUST have at least 3-5 detailed sentences
