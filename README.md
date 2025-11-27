@@ -169,9 +169,10 @@ CSV出力 → Thunderbirdメールマージ → 送信
    C列: ⑥新ステータス　要送信
    D列: ⑥新規顧客向け
    ```
-4. **GitHub Actionsワークフロー**の選択肢に追加:
-   - `.github/workflows/extract_and_generate.yml`を編集
-   - `options:`に新しいステータスを追加
+4. **GitHub Actionsで選択肢を同期**:
+   - GitHubの「Actions」タブを開く
+   - **「ステータス選択肢を同期」** を実行
+   - 設定シートの内容がワークフローの選択肢に自動反映される
 
 ### プレースホルダー
 
@@ -185,10 +186,12 @@ CSV出力 → Thunderbirdメールマージ → 送信
 kickstarter-market-analyzer/
 ├── .github/
 │   └── workflows/
+│       ├── extract_and_generate.yml    # 管理表から抽出してメール生成
 │       ├── update_reports.yml          # kickstarterシート直接更新用
-│       └── extract_and_generate.yml    # 管理表から抽出してメール生成
+│       └── sync_workflow_options.yml   # ステータス選択肢を同期
 ├── main.py                              # メール生成メインスクリプト
 ├── extract_from_management.py           # 管理表からの抽出スクリプト
+├── sync_workflow_options.py             # 選択肢同期スクリプト
 ├── sheets_client.py                     # Google Sheets連携
 ├── report_generator.py                  # レポート生成（OpenAI API）
 ├── market_search.py                     # 日本市場類似製品検索（Selenium）
