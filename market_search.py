@@ -62,43 +62,75 @@ class MarketSearcher:
         # Seleniumドライバー（遅延初期化）
         self._driver = None
 
-    def _get_driver(self):
+    def _get_driver(self, force_new=False):
         """Seleniumドライバーを取得（遅延初期化）"""
         if not SELENIUM_AVAILABLE:
             print("     ⚠️ Seleniumが利用できないためスキップ")
             return None
 
+        # 既存のドライバーがある場合は閉じる（force_new時）
+        if force_new and self._driver:
+            self._close_driver()
+
         if self._driver is None:
             try:
                 print("     Seleniumブラウザを初期化中...")
                 options = Options()
-                options.add_argument('--headless=new')  # 新しいheadlessモード
+                options.add_argument('--headless=new')
                 options.add_argument('--no-sandbox')
                 options.add_argument('--disable-dev-shm-usage')
                 options.add_argument('--disable-gpu')
-                options.add_argument('--window-size=1920,1080')
+                options.add_argument('--window-size=1280,720')
                 options.add_argument('--lang=ja-JP')
-                options.add_argument('--accept-lang=ja-JP,ja;q=0.9')
                 options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-                # GitHub Actions用の追加オプション
+                # GitHub Actions用のメモリ節約・安定性オプション
                 options.add_argument('--disable-extensions')
                 options.add_argument('--disable-software-rasterizer')
-                options.add_argument('--single-process')
-                options.add_argument('--ignore-certificate-errors')
+                options.add_argument('--disable-background-networking')
+                options.add_argument('--disable-default-apps')
+                options.add_argument('--disable-sync')
+                options.add_argument('--disable-translate')
+                options.add_argument('--disable-features=NetworkService,NetworkServiceInProcess')
+                options.add_argument('--force-color-profile=srgb')
+                options.add_argument('--metrics-recording-only')
+                options.add_argument('--mute-audio')
+                options.add_argument('--no-first-run')
+                options.add_argument('--safebrowsing-disable-auto-update')
+                # 追加の安定性オプション（クラッシュ防止）
+                options.add_argument('--disable-browser-side-navigation')
+                options.add_argument('--disable-infobars')
+                options.add_argument('--disable-popup-blocking')
+                options.add_argument('--disable-notifications')
+                options.add_argument('--disable-hang-monitor')
+                options.add_argument('--disable-prompt-on-repost')
+                options.add_argument('--disable-client-side-phishing-detection')
+                options.add_argument('--disable-component-update')
+                options.add_argument('--disable-ipc-flooding-protection')
+                options.add_argument('--enable-features=NetworkService,NetworkServiceInProcess')
+                options.add_argument('--remote-debugging-port=0')
+                # メモリ制限
+                options.add_argument('--js-flags=--max-old-space-size=256')
+                options.add_argument('--renderer-process-limit=1')
+                options.add_argument('--memory-pressure-off')
+                # 画像無効化でメモリ削減
+                options.add_argument('--blink-settings=imagesEnabled=false')
+                # ページロードタイムアウト設定
+                options.page_load_strategy = 'eager'
 
-                # 方法1: webdriver-managerを使用
-                print("     ChromeDriverをセットアップ中（webdriver-manager）...")
+                print("     ChromeDriverをセットアップ中...")
                 try:
                     service = Service(ChromeDriverManager().install())
                     self._driver = webdriver.Chrome(service=service, options=options)
-                    print("     ✓ Seleniumブラウザを初期化しました（webdriver-manager）")
+                    self._driver.set_page_load_timeout(30)
+                    self._driver.implicitly_wait(5)
+                    print("     ✓ Seleniumブラウザを初期化しました")
                 except Exception as e1:
                     print(f"     webdriver-manager失敗: {e1}")
-                    # 方法2: システムのchromedriver を使用
-                    print("     システムのChromedriverを試行中...")
                     try:
                         self._driver = webdriver.Chrome(options=options)
-                        print("     ✓ Seleniumブラウザを初期化しました（システムchrome）")
+                        self._driver.set_page_load_timeout(30)
+                        self._driver.implicitly_wait(5)
+                        print("     ✓ Seleniumブラウザを初期化しました（システム）")
                     except Exception as e2:
                         print(f"     システムchrome失敗: {e2}")
                         raise e2
@@ -275,7 +307,7 @@ URL: {kickstarter_url}
         print("     [DEBUG] Seleniumが使えないためRSSフォールバックを使用")
         return self._search_makuake_rss(keyword)
 
-    def _search_makuake_selenium(self, keyword, driver):
+    def _search_makuake_selenium(self, keyword, driver, retry_count=0):
         """Seleniumを使ったMakuake検索"""
         try:
             import urllib.parse
@@ -381,7 +413,18 @@ URL: {kickstarter_url}
             }
 
         except Exception as e:
-            print(f"     ⚠️ Makuake Selenium検索エラー: {type(e).__name__}: {e}")
+            error_name = type(e).__name__
+            print(f"     ⚠️ Makuake Selenium検索エラー: {error_name}: {e}")
+
+            # セッション切れの場合はドライバーをリセットしてリトライ
+            if 'InvalidSessionId' in error_name or 'session' in str(e).lower():
+                if retry_count < 1:
+                    print(f"     → ドライバーをリセットしてリトライ...")
+                    self._close_driver()
+                    new_driver = self._get_driver(force_new=True)
+                    if new_driver:
+                        return self._search_makuake_selenium(keyword, new_driver, retry_count + 1)
+
             return {"found": False, "projects": [], "search_note": str(e), "search_attempted": False}
 
     def _search_makuake_rss(self, keyword):
