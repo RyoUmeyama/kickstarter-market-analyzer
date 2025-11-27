@@ -57,6 +57,9 @@ def extract_rows(client, target_statuses, generate_emails=False):
     all_rows = []
 
     for status in target_statuses:
+        # 「（空白＝新規）」は空文字列として扱う
+        if status == '（空白＝新規）':
+            status = ''
         print(f"\n処理中: ステータス「{status if status else '(空白)'}」")
         rows = client.get_rows_by_status(status)
         print(f"  → {len(rows)}件のKickstarter URLを発見")

@@ -4,10 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       status:
-        description: '抽出するステータス（管理表のF列の値を入力）'
+        description: '抽出するステータス'
         required: true
-        default: ''
-        type: string
+        default: '②無返信2回目　要送信'
+        type: choice
+        options:
+          - '（空白＝新規）'
+          - '②無返信2回目　要送信'
+          - '➂無返信3回目　要送信'
+          - '④自動返信　要送信'
+          - '⑤好返信　要レポ送信'
 
 jobs:
   extract-and-generate:
