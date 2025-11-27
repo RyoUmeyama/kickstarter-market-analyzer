@@ -163,29 +163,36 @@ OUTPUT LANGUAGE: ENGLISH ONLY (英語のみで出力してください)"""
 CRITICAL FORMATTING RULES (MUST FOLLOW):
 1. ALWAYS use numbered sections: "1. Title", "2. Title", "3. Title", etc.
 2. NEVER use Markdown: no **, no ##, no -, no []() links
-3. Use plain text URLs only (e.g., https://www.makuake.com/project/...)
+3. Use plain text URLs only (e.g., https://www.makuake.com/project/example123)
 4. Use "■" for sub-section headers within numbered sections
 5. Use "・" for bullet points (not "-")
+6. ALWAYS put URLs on their own line, never concatenate URL with text
+   - WRONG: "Visit https://example.com for details."
+   - CORRECT: "For details, please visit:\nhttps://example.com"
+7. NEVER use generic top-level URLs (like https://www.makuake.com or https://www.amazon.co.jp)
+   - ONLY include specific product/campaign page URLs
+   - If you don't know a specific URL, do NOT include any URL - just describe the product
 
 CONTENT DEPTH REQUIREMENTS (CRITICAL):
 1. Each section MUST have at least 3-5 detailed sentences
 2. ALWAYS include specific numbers: prices, sales figures, backer counts, funding amounts
 3. For competitor analysis: list AT LEAST 3 similar products with their specific performance data
 4. ALWAYS convert USD to JPY (e.g., $49 = approximately 7,300 yen)
-5. Include specific Makuake/CAMPFIRE campaign URLs with actual funding results
+5. For similar products, describe them by name and category (do NOT make up URLs)
 6. For EC sales data: include specific unit sales and revenue figures
 7. Compare product features in detail (not just names)
 8. Provide market forecasts with specific numerical projections
-9. Each crowdfunding example should include: funding amount, number of backers, campaign URL
+9. Each crowdfunding example should include: funding amount, number of backers, product name
 
 ANALYSIS REQUIREMENTS:
 1. Provide SPECIFIC and DETAILED data with concrete numbers
-2. Include REAL product examples with specific names and URLs
-3. Cite ACTUAL information sources with plain text URLs
+2. Include REAL product examples with specific names (do NOT invent URLs)
+3. Only include URLs if you are 100% certain they are real and specific product pages
 4. Include specific pricing data, sales figures, and backer numbers
 5. Provide detailed competitor analysis with product names and performance metrics
 6. Give realistic market forecasts based on similar product performance
 7. DO NOT use vague phrases like "many", "various", "generally" - use specific numbers instead
+8. If referencing a platform (Makuake, Amazon, etc.), mention product names, not generic URLs
 
 OUTPUT FORMAT:
 - Generate the complete email body in ENGLISH ONLY
