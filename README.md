@@ -19,14 +19,19 @@ Kickstarter製品の日本市場参入提案メールを自動生成するシス
    - プロンプトがなければ、テンプレート本文をそのまま使用
    - 具体的なデータ、実URL、競合分析を含む詳細レポート
 
-4. **共通プロンプト管理**
+4. **日本市場の類似製品検索**
+   - Seleniumによるブラウザ自動化でMakuakeから類似製品を自動検索
+   - 製品カテゴリから適切な検索キーワードをAIが自動生成
+   - 検索結果（製品名、資金調達額、URL）をレポートに自動挿入
+
+5. **共通プロンプト管理**
    - 「設定」シートで全テンプレート共通のAI出力ルールを管理
    - Markdown記号の除去、自然な文体など品質ルールを一元管理
 
-5. **自動翻訳対応**
+6. **自動翻訳対応**
    - Google SheetsのGOOGLETRANSLATE関数により英語→日本語を自動翻訳
 
-6. **メールマージ対応**
+7. **メールマージ対応**
    - Google SheetsをCSV出力してThunderbirdのメールマージで一括送信可能
    - HTML形式メール対応（改行を`<br>`に自動変換）
 
@@ -186,6 +191,7 @@ kickstarter-market-analyzer/
 ├── extract_from_management.py           # 管理表からの抽出スクリプト
 ├── sheets_client.py                     # Google Sheets連携
 ├── report_generator.py                  # レポート生成（OpenAI API）
+├── market_search.py                     # 日本市場類似製品検索（Selenium）
 ├── requirements.txt                     # 依存関係
 ├── README.md                            # 本ドキュメント
 └── CLIENT_SETUP_GUIDE.md                # クライアント向けセットアップガイド
@@ -236,6 +242,7 @@ kickstarter-market-analyzer/
 - **Python 3.11+**
 - **Google Sheets API** (service account認証)
 - **OpenAI API** (gpt-4o-mini)
+- **Selenium WebDriver** (Makuake検索用、headless Chrome)
 - **GitHub Actions** (手動トリガー)
 
 ### コスト目安

@@ -292,11 +292,8 @@ URL: {kickstarter_url}
         Returns:
             dict: 検索結果
         """
-        print(f"     [DEBUG] SELENIUM_AVAILABLE = {SELENIUM_AVAILABLE}")
-
         # まずSeleniumで検索を試みる
         driver = self._get_driver()
-        print(f"     [DEBUG] driver = {driver is not None}")
 
         if driver:
             result = self._search_makuake_selenium(keyword, driver)
@@ -304,7 +301,6 @@ URL: {kickstarter_url}
                 return result
 
         # Seleniumが使えない場合はRSSフォールバック
-        print("     [DEBUG] Seleniumが使えないためRSSフォールバックを使用")
         return self._search_makuake_rss(keyword)
 
     def _search_makuake_selenium(self, keyword, driver, retry_count=0):
