@@ -163,15 +163,16 @@ OUTPUT LANGUAGE: ENGLISH ONLY (英語のみで出力してください)"""
 CRITICAL FORMATTING RULES (MUST FOLLOW):
 1. ALWAYS use numbered sections: "1. Title", "2. Title", "3. Title", etc.
 2. NEVER use Markdown: no **, no ##, no -, no []() links
-3. Use plain text URLs only (e.g., https://www.makuake.com/project/example123)
-4. Use "■" for sub-section headers within numbered sections
-5. Use "・" for bullet points (not "-")
-6. ALWAYS put URLs on their own line, never concatenate URL with text
-   - WRONG: "Visit https://example.com for details."
-   - CORRECT: "For details, please visit:\nhttps://example.com"
-7. NEVER use generic top-level URLs (like https://www.makuake.com or https://www.amazon.co.jp)
-   - ONLY include specific product/campaign page URLs
-   - If you don't know a specific URL, do NOT include any URL - just describe the product
+3. Use "■" for sub-section headers within numbered sections
+4. Use "・" for bullet points (not "-")
+
+EXTREMELY IMPORTANT - URL RULES:
+- You may ONLY include URLs that are explicitly provided in the input (like the Kickstarter URL)
+- NEVER generate, invent, or guess any URLs for Makuake, CAMPFIRE, Amazon, or any other website
+- NEVER use placeholder URLs like "https://www.makuake.com/project/example"
+- When mentioning similar products or campaigns, describe them by NAME and CATEGORY only
+- Example: "A similar product 'Smart Building Blocks' raised 15 million yen on Makuake with 800 backers"
+- Do NOT add any URL after mentioning a product - just the name and data is sufficient
 
 CONTENT DEPTH REQUIREMENTS (CRITICAL):
 1. Each section MUST have at least 3-5 detailed sentences
@@ -186,13 +187,13 @@ CONTENT DEPTH REQUIREMENTS (CRITICAL):
 
 ANALYSIS REQUIREMENTS:
 1. Provide SPECIFIC and DETAILED data with concrete numbers
-2. Include REAL product examples with specific names (do NOT invent URLs)
-3. Only include URLs if you are 100% certain they are real and specific product pages
+2. Include product examples with specific names - NEVER invent or guess URLs
+3. NEVER include any URL except the Kickstarter URL provided in the input
 4. Include specific pricing data, sales figures, and backer numbers
 5. Provide detailed competitor analysis with product names and performance metrics
 6. Give realistic market forecasts based on similar product performance
 7. DO NOT use vague phrases like "many", "various", "generally" - use specific numbers instead
-8. If referencing a platform (Makuake, Amazon, etc.), mention product names, not generic URLs
+8. When referencing platforms (Makuake, Amazon, etc.), mention ONLY product names and numbers, NO URLs
 
 OUTPUT FORMAT:
 - Generate the complete email body in ENGLISH ONLY
