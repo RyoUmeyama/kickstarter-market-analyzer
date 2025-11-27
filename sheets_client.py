@@ -430,8 +430,8 @@ class GoogleSheetsClient:
         return unprocessed
 
 
-# ステータス→テンプレート対応表
-STATUS_TEMPLATE_MAP = {
+# デフォルトのステータス→テンプレート対応表（設定シートに定義がない場合のフォールバック）
+DEFAULT_STATUS_TEMPLATE_MAP = {
     '': '①1回目送信文',
     '新規': '①1回目送信文',
     '①1回目送信文 要送信': '①1回目送信文',
@@ -445,6 +445,9 @@ STATUS_TEMPLATE_MAP = {
     '⑤好返信　要送信': '⑤好返信用　詳細レポート送信',
     '⑤好返信 要送信': '⑤好返信用　詳細レポート送信',
 }
+
+# 後方互換性のためのエイリアス
+STATUS_TEMPLATE_MAP = DEFAULT_STATUS_TEMPLATE_MAP
 
 
 class ManagementSheetClient(GoogleSheetsClient):
@@ -462,6 +465,69 @@ class ManagementSheetClient(GoogleSheetsClient):
     def __init__(self, spreadsheet_id):
         super().__init__(spreadsheet_id, 'kickstarter')
         self.management_sheet = '管理表'
+        self._status_template_map = None  # キャッシュ用
+
+    def get_status_template_mapping(self):
+        """
+        設定シートからステータス→テンプレート対応表を読み込む
+
+        設定シートの構造:
+        - C1: "ステータス→テンプレート対応表"（ヘッダー）
+        - C2: "ステータス", D2: "テンプレート"（列ヘッダー）
+        - C3:D以降: 実際のマッピングデータ
+
+        Returns:
+            dict: ステータスをキー、テンプレート名を値とする辞書
+        """
+        # キャッシュがあれば返す
+        if self._status_template_map is not None:
+            return self._status_template_map
+
+        try:
+            # 設定シートのC3:D列を読み込み（C3から開始、最大50行）
+            result = self.service.spreadsheets().values().get(
+                spreadsheetId=self.spreadsheet_id,
+                range="'設定'!C3:D50"
+            ).execute()
+
+            values = result.get('values', [])
+            mapping = {}
+
+            for row in values:
+                if len(row) >= 2:
+                    status = row[0].strip() if row[0] else ''
+                    template = row[1].strip() if row[1] else ''
+                    if template:  # テンプレートが設定されている場合のみ追加
+                        mapping[status] = template
+
+            if mapping:
+                print(f"✓ 設定シートからステータス→テンプレート対応表を読み込みました（{len(mapping)}件）")
+                self._status_template_map = mapping
+                return mapping
+            else:
+                print("⚠️  設定シートに対応表がありません。デフォルト設定を使用します")
+                self._status_template_map = DEFAULT_STATUS_TEMPLATE_MAP
+                return DEFAULT_STATUS_TEMPLATE_MAP
+
+        except HttpError as err:
+            print(f"⚠️  設定シートの読み込みエラー: {err}")
+            print("   デフォルト設定を使用します")
+            self._status_template_map = DEFAULT_STATUS_TEMPLATE_MAP
+            return DEFAULT_STATUS_TEMPLATE_MAP
+
+    def get_template_for_status(self, status):
+        """
+        ステータスに対応するテンプレート名を取得
+
+        Args:
+            status (str): ステータス値
+
+        Returns:
+            str: テンプレート名（対応がない場合は①1回目送信文）
+        """
+        mapping = self.get_status_template_mapping()
+        status_clean = status.strip() if status else ''
+        return mapping.get(status_clean, mapping.get('', '①1回目送信文'))
 
     def get_rows_by_status(self, target_status):
         """
@@ -554,8 +620,8 @@ class ManagementSheetClient(GoogleSheetsClient):
             # データを準備
             values_to_write = []
             for i, row in enumerate(rows, 1):
-                # ステータスからテンプレートを自動選択
-                template = STATUS_TEMPLATE_MAP.get(row['status'].strip(), '①1回目送信文')
+                # ステータスからテンプレートを自動選択（設定シートから読み込み）
+                template = self.get_template_for_status(row['status'])
 
                 values_to_write.append([
                     i,                  # A: NO

@@ -19,7 +19,7 @@
 import os
 import argparse
 from dotenv import load_dotenv
-from sheets_client import ManagementSheetClient, STATUS_TEMPLATE_MAP
+from sheets_client import ManagementSheetClient
 
 # .envファイルを読み込み
 load_dotenv()
@@ -32,10 +32,11 @@ def list_statuses(client):
     print("=" * 60)
 
     statuses = client.get_available_statuses()
+    status_template_map = client.get_status_template_mapping()
 
     # テンプレート対応があるステータスを先に表示
     print("\n【送信対象ステータス（テンプレート対応あり）】")
-    for status, template in STATUS_TEMPLATE_MAP.items():
+    for status, template in status_template_map.items():
         if status in statuses or status == '':
             display_status = status if status else '(空白)'
             count = statuses.get(status, statuses.get('(空白)', 0))
@@ -45,7 +46,7 @@ def list_statuses(client):
     # その他のステータス
     print("\n【その他のステータス】")
     for status, count in sorted(statuses.items(), key=lambda x: -x[1]):
-        if status not in STATUS_TEMPLATE_MAP and status != '(空白)':
+        if status not in status_template_map and status != '(空白)':
             print(f"  {status}: {count}件")
 
     print()
