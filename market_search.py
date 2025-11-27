@@ -93,7 +93,7 @@ Kickstarter URL: {kickstarter_url}
     def search_makuake(self, keyword):
         """
         Makuakeで類似製品を検索
-        Makuakeはページが動的なため、Google検索で site:makuake.com を使用
+        MakuakeはJavaScript動的ページのため、RSSフィードから取得してキーワードフィルタリング
 
         Args:
             keyword (str): 検索キーワード
@@ -102,41 +102,53 @@ Kickstarter URL: {kickstarter_url}
             dict: 検索結果
         """
         try:
-            # Google検索で site:makuake.com を使用
-            search_query = f"site:makuake.com/project/ {keyword}"
-            search_url = f"https://www.google.com/search?q={requests.utils.quote(search_query)}&num=10"
-            print(f"     Makuake検索（via Google）: {keyword}")
+            # MakuakeのRSSフィードを取得
+            rss_url = "https://www.makuake.com/rss/"
+            print(f"     Makuake検索（via RSS）: {keyword}")
 
-            response = self.session.get(search_url, timeout=15)
+            response = self.session.get(rss_url, timeout=15)
             response.raise_for_status()
             response.encoding = 'utf-8'
 
-            soup = BeautifulSoup(response.text, 'html.parser')
+            soup = BeautifulSoup(response.text, 'xml')
             projects = []
 
-            # Google検索結果からMakuakeプロジェクトURLを抽出
-            for link in soup.find_all('a', href=True):
-                href = link.get('href', '')
-                # Google検索結果のURLパターン
-                if 'makuake.com/project/' in href:
-                    # URLを抽出
-                    url_match = re.search(r'(https?://www\.makuake\.com/project/[^&"\s]+)', href)
-                    if url_match:
-                        project_url = url_match.group(1)
-                        # クエリパラメータを除去
-                        project_url = project_url.split('?')[0].rstrip('/')
+            # RSSアイテムを処理
+            items = soup.find_all('item')
+            for item in items:
+                try:
+                    title = item.find('title').get_text(strip=True) if item.find('title') else ""
+                    description = item.find('description').get_text(strip=True) if item.find('description') else ""
+                    link = item.find('link').get_text(strip=True) if item.find('link') else ""
 
-                        # 重複チェック
-                        if any(p['url'] == project_url for p in projects):
-                            continue
+                    # キーワードマッチング（タイトルまたは説明に含まれるか）
+                    if keyword.lower() in title.lower() or keyword.lower() in description.lower():
+                        if link and '/project/' in link:
+                            # プロジェクト詳細を取得（メタタグから）
+                            project_info = self._get_makuake_project_details(link)
+                            if project_info:
+                                projects.append(project_info)
 
-                        # プロジェクト詳細を取得
-                        project_info = self._get_makuake_project_details(project_url)
-                        if project_info:
-                            projects.append(project_info)
+                            if len(projects) >= 3:
+                                break
 
-                        if len(projects) >= 3:
-                            break
+                except Exception:
+                    continue
+
+            # キーワードマッチしなかった場合、直近のプロジェクトを参考として取得
+            if not projects:
+                for item in items[:5]:
+                    try:
+                        link = item.find('link').get_text(strip=True) if item.find('link') else ""
+                        if link and '/project/' in link:
+                            project_info = self._get_makuake_project_details(link)
+                            if project_info:
+                                # カテゴリが一致するかチェック（緩いマッチング）
+                                projects.append(project_info)
+                                if len(projects) >= 2:
+                                    break
+                    except Exception:
+                        continue
 
             return {
                 "found": len(projects) > 0,
@@ -150,7 +162,7 @@ Kickstarter URL: {kickstarter_url}
 
     def _get_makuake_project_details(self, project_url):
         """
-        Makuakeプロジェクトの詳細を取得
+        Makuakeプロジェクトの詳細を取得（メタタグから）
 
         Args:
             project_url (str): プロジェクトURL
@@ -165,35 +177,55 @@ Kickstarter URL: {kickstarter_url}
 
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # プロジェクト名
-            title_elem = soup.select_one('h1, .project-title, [class*="title"]')
-            title = title_elem.get_text(strip=True) if title_elem else "不明"
-
-            # 資金調達額
-            funding_elem = soup.select_one('[class*="amount"], [class*="collected"], [class*="funding"]')
+            # メタタグからデータを取得（Makuakeは note: プロパティを使用）
+            title = ""
             funding = ""
-            if funding_elem:
-                funding_text = funding_elem.get_text(strip=True)
-                # 金額を抽出
-                amount_match = re.search(r'[\d,]+', funding_text)
-                if amount_match:
-                    funding = amount_match.group() + "円"
-
-            # 支援者数
-            backers_elem = soup.select_one('[class*="backer"], [class*="supporter"]')
             backers = 0
-            if backers_elem:
-                backers_text = backers_elem.get_text(strip=True)
-                backers_match = re.search(r'[\d,]+', backers_text)
-                if backers_match:
-                    backers = int(backers_match.group().replace(',', ''))
+            category = ""
 
-            if title and title != "不明":
+            # note:title
+            title_meta = soup.find('meta', property='note:title')
+            if title_meta:
+                title = title_meta.get('content', '')
+
+            # note:current_amount
+            amount_meta = soup.find('meta', property='note:current_amount')
+            if amount_meta:
+                amount = amount_meta.get('content', '0')
+                if amount and amount != '0':
+                    # 金額をフォーマット
+                    try:
+                        amount_int = int(amount)
+                        funding = f"{amount_int:,}円"
+                    except ValueError:
+                        funding = f"{amount}円"
+
+            # note:supporters
+            supporters_meta = soup.find('meta', property='note:supporters')
+            if supporters_meta:
+                try:
+                    backers = int(supporters_meta.get('content', '0'))
+                except ValueError:
+                    backers = 0
+
+            # note:category
+            category_meta = soup.find('meta', property='note:category')
+            if category_meta:
+                category = category_meta.get('content', '')
+
+            # タイトルが取得できなかった場合はog:titleを試す
+            if not title:
+                og_title = soup.find('meta', property='og:title')
+                if og_title:
+                    title = og_title.get('content', '').replace('Makuake｜', '').replace('｜Makuake（マクアケ）', '')
+
+            if title:
                 return {
                     "name": title[:100],  # 長すぎる場合は切り詰め
-                    "url": project_url.split('?')[0],  # クエリパラメータを除去
-                    "funding_amount": funding if funding else "非公開",
+                    "url": project_url.split('?')[0].rstrip('/'),  # クエリパラメータを除去
+                    "funding_amount": funding if funding else "募集中",
                     "backers": backers,
+                    "category": category,
                     "platform": "Makuake"
                 }
 
