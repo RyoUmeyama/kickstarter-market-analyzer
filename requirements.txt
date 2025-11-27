@@ -19,7 +19,10 @@ python-dotenv>=1.0.0
 
 # Date/Time
 python-dateutil>=2.8.0
+
+# Browser Automation
 selenium>=4.15.0
+webdriver-manager>=4.0.0
 
 # Document Generation
 python-docx>=1.2.0

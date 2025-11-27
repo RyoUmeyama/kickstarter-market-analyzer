@@ -2,15 +2,29 @@
 """
 市場調査用ウェブ検索モジュール
 Makuake/CAMPFIREで類似製品を検索し、実在するデータを取得
-ウェブスクレイピングによるリアルタイムデータ取得
+Seleniumによるブラウザ自動化でJavaScriptレンダリングに対応
 """
 
 import os
 import re
 import json
+import time
 import requests
 from bs4 import BeautifulSoup
 from openai import OpenAI
+
+# Selenium関連
+try:
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from webdriver_manager.chrome import ChromeDriverManager
+    SELENIUM_AVAILABLE = True
+except ImportError:
+    SELENIUM_AVAILABLE = False
 
 
 class MarketSearcher:
@@ -42,6 +56,48 @@ class MarketSearcher:
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache',
         })
+
+        # Seleniumドライバー（遅延初期化）
+        self._driver = None
+
+    def _get_driver(self):
+        """Seleniumドライバーを取得（遅延初期化）"""
+        if not SELENIUM_AVAILABLE:
+            return None
+
+        if self._driver is None:
+            try:
+                options = Options()
+                options.add_argument('--headless')
+                options.add_argument('--no-sandbox')
+                options.add_argument('--disable-dev-shm-usage')
+                options.add_argument('--disable-gpu')
+                options.add_argument('--window-size=1920,1080')
+                options.add_argument('--lang=ja-JP')
+                options.add_argument('--accept-lang=ja-JP,ja;q=0.9')
+                options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+
+                service = Service(ChromeDriverManager().install())
+                self._driver = webdriver.Chrome(service=service, options=options)
+                print("     ✓ Seleniumブラウザを初期化しました")
+            except Exception as e:
+                print(f"     ⚠️ Selenium初期化エラー: {e}")
+                self._driver = None
+
+        return self._driver
+
+    def _close_driver(self):
+        """Seleniumドライバーを終了"""
+        if self._driver:
+            try:
+                self._driver.quit()
+            except Exception:
+                pass
+            self._driver = None
+
+    def __del__(self):
+        """デストラクタ"""
+        self._close_driver()
 
     def _fetch_kickstarter_info(self, kickstarter_url):
         """
@@ -173,7 +229,7 @@ URL: {kickstarter_url}
     def search_makuake(self, keyword):
         """
         Makuakeで類似製品を検索
-        MakuakeはJavaScript動的ページのため、RSSフィードから取得してキーワードフィルタリング
+        Seleniumを使用してJavaScriptレンダリング後のページから検索
 
         Args:
             keyword (str): 検索キーワード
@@ -181,10 +237,130 @@ URL: {kickstarter_url}
         Returns:
             dict: 検索結果
         """
+        # まずSeleniumで検索を試みる
+        driver = self._get_driver()
+        if driver:
+            result = self._search_makuake_selenium(keyword, driver)
+            if result.get('found') or result.get('search_attempted'):
+                return result
+
+        # Seleniumが使えない場合はRSSフォールバック
+        return self._search_makuake_rss(keyword)
+
+    def _search_makuake_selenium(self, keyword, driver):
+        """Seleniumを使ったMakuake検索"""
         try:
-            # MakuakeのRSSフィードを取得
+            import urllib.parse
+            # 正しい検索URL: /discover/projects/?keyword=XXX
+            search_url = f"https://www.makuake.com/discover/projects/?keyword={urllib.parse.quote(keyword)}"
+            print(f"     Makuake検索（Selenium）: {keyword}")
+            print(f"       URL: {search_url}")
+
+            driver.get(search_url)
+            time.sleep(3)  # ページ読み込み待機
+
+            # プロジェクトカードを待機
+            try:
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'a[href*="/project/"]'))
+                )
+            except Exception:
+                print(f"       → プロジェクトが見つかりませんでした")
+                return {"found": False, "projects": [], "search_note": "該当する製品が見つかりませんでした", "search_attempted": True}
+
+            # ページソースを取得してBeautifulSoupで解析
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            projects = []
+
+            # プロジェクトリンクを検索（liタグ内のaタグを対象）
+            project_links = soup.select('ul li a[href*="/project/"]')
+            if not project_links:
+                # フォールバック: 通常のaタグ
+                project_links = soup.select('a[href*="/project/"]')
+
+            seen_urls = set()
+            print(f"       → {len(project_links)}件のリンクを発見")
+
+            for link in project_links[:20]:
+                try:
+                    href = link.get('href', '')
+                    if not href or '/project/' not in href:
+                        continue
+
+                    # 完全なURLを構築
+                    if href.startswith('/'):
+                        project_url = f"https://www.makuake.com{href}"
+                    elif not href.startswith('http'):
+                        continue
+                    else:
+                        project_url = href
+
+                    # 重複を除外
+                    base_url = project_url.split('?')[0].rstrip('/')
+                    if base_url in seen_urls:
+                        continue
+                    seen_urls.add(base_url)
+
+                    # リンク内のテキスト全体を取得（タイトル+金額+達成率が含まれる）
+                    full_text = link.get_text(strip=True)
+                    if not full_text or len(full_text) < 10:
+                        continue
+
+                    # 金額を抽出（￥の後の数字、カンマ区切りで最大3桁ずつ）
+                    funding = ""
+                    # パターン: ￥1,234,567 のような形式を抽出
+                    amount_match = re.search(r'[￥¥]([0-9]{1,3}(?:,[0-9]{3})*)', full_text)
+                    if amount_match:
+                        funding = amount_match.group(1) + "円"
+
+                    # 達成率を抽出
+                    percent = 0
+                    percent_match = re.search(r'(\d+)%', full_text)
+                    if percent_match:
+                        percent = int(percent_match.group(1))
+
+                    # タイトルを抽出（金額の前までのテキスト）
+                    if amount_match:
+                        title = full_text[:amount_match.start()].strip()
+                    else:
+                        # 金額がない場合は最初の80文字
+                        title = full_text[:80]
+
+                    if not title or len(title) < 5:
+                        continue
+
+                    print(f"         ✓ 発見: {title[:40]}...")
+                    projects.append({
+                        "name": title[:100],
+                        "url": base_url,
+                        "funding_amount": funding if funding else "募集中",
+                        "backers": 0,  # 支援者数は詳細ページから取得が必要
+                        "percent": percent,
+                        "platform": "Makuake"
+                    })
+
+                    if len(projects) >= 5:
+                        break
+
+                except Exception as e:
+                    continue
+
+            return {
+                "found": len(projects) > 0,
+                "projects": projects,
+                "search_note": f"Makuakeで{len(projects)}件の類似製品を発見" if projects else "該当する製品が見つかりませんでした",
+                "search_attempted": True
+            }
+
+        except Exception as e:
+            print(f"     ⚠️ Makuake Selenium検索エラー: {type(e).__name__}: {e}")
+            return {"found": False, "projects": [], "search_note": str(e), "search_attempted": False}
+
+    def _search_makuake_rss(self, keyword):
+        """RSSフィードを使ったMakuake検索（フォールバック）"""
+        try:
             rss_url = "https://www.makuake.com/rss/"
-            print(f"     Makuake検索（via RSS）: {keyword}")
+            print(f"     Makuake検索（RSS フォールバック）: {keyword}")
 
             response = self.session.get(rss_url, timeout=15)
             response.raise_for_status()
@@ -193,20 +369,15 @@ URL: {kickstarter_url}
             soup = BeautifulSoup(response.text, 'xml')
             projects = []
 
-            # RSSアイテムを処理
             items = soup.find_all('item')
             print(f"       → RSSから{len(items)}件のアイテムを取得")
             for item in items:
                 try:
                     title = item.find('title').get_text(strip=True) if item.find('title') else ""
-                    description = item.find('description').get_text(strip=True) if item.find('description') else ""
                     link = item.find('link').get_text(strip=True) if item.find('link') else ""
 
-                    # キーワードマッチング（タイトルに含まれる場合のみ - より厳密）
-                    # 説明文は長いため誤マッチが多い、タイトルのみで判定
                     if keyword.lower() in title.lower():
                         if link and '/project/' in link:
-                            # プロジェクト詳細を取得（メタタグから）
                             project_info = self._get_makuake_project_details(link)
                             if project_info:
                                 projects.append(project_info)
@@ -217,8 +388,6 @@ URL: {kickstarter_url}
                 except Exception:
                     continue
 
-            # キーワードマッチしなかった場合は0件として正直に返す（嘘をつかない）
-
             return {
                 "found": len(projects) > 0,
                 "projects": projects,
@@ -226,7 +395,7 @@ URL: {kickstarter_url}
             }
 
         except Exception as e:
-            print(f"     ⚠️ Makuake検索エラー: {type(e).__name__}: {e}")
+            print(f"     ⚠️ Makuake RSS検索エラー: {type(e).__name__}: {e}")
             return {"found": False, "projects": [], "search_note": str(e)}
 
     def _get_makuake_project_details(self, project_url):
@@ -305,7 +474,8 @@ URL: {kickstarter_url}
 
     def search_campfire(self, keyword, filter_keywords=None):
         """
-        CAMPFIREで類似製品を検索（ウェブスクレイピング）
+        CAMPFIREで類似製品を検索
+        Seleniumを使用してJavaScriptレンダリング後のページから検索
 
         Args:
             keyword (str): 検索キーワード
@@ -316,12 +486,105 @@ URL: {kickstarter_url}
         """
         if filter_keywords is None:
             filter_keywords = []
-        try:
-            # CAMPFIRE検索URL
-            search_url = f"https://camp-fire.jp/projects/search?word={requests.utils.quote(keyword)}"
-            print(f"     CAMPFIRE検索: {keyword}")
 
-            # 日本語サイトを強制するためのヘッダー追加
+        # まずSeleniumで検索を試みる
+        driver = self._get_driver()
+        if driver:
+            result = self._search_campfire_selenium(keyword, filter_keywords, driver)
+            if result.get('found') or result.get('search_attempted') or result.get('geo_restricted'):
+                return result
+
+        # Seleniumが使えない場合は従来の方法でフォールバック
+        return self._search_campfire_requests(keyword, filter_keywords)
+
+    def _search_campfire_selenium(self, keyword, filter_keywords, driver):
+        """Seleniumを使ったCAMPFIRE検索"""
+        try:
+            import urllib.parse
+            search_url = f"https://camp-fire.jp/projects/search?word={urllib.parse.quote(keyword)}"
+            print(f"     CAMPFIRE検索（Selenium）: {keyword}")
+            print(f"       URL: {search_url}")
+
+            driver.get(search_url)
+            time.sleep(3)  # ページ読み込み待機
+
+            # 海外IPリダイレクトを検知
+            if 'Welcome' in driver.page_source and 'International' in driver.page_source:
+                print(f"     ⚠️ CAMPFIRE: 海外IPからのアクセス制限が検知されました")
+                return {
+                    "found": False,
+                    "projects": [],
+                    "search_note": "海外からのアクセス制限のため取得できませんでした",
+                    "geo_restricted": True,
+                    "search_attempted": True
+                }
+
+            # プロジェクトカードを待機
+            try:
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'a[href*="/projects/"]'))
+                )
+            except Exception:
+                print(f"       → プロジェクトが見つかりませんでした")
+                return {"found": False, "projects": [], "search_note": "該当する製品が見つかりませんでした", "search_attempted": True}
+
+            # ページソースを取得してBeautifulSoupで解析
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            projects = []
+
+            # プロジェクトリンクを検索
+            project_links = soup.select('a[href*="/projects/"][href*="/view"]')
+            seen_urls = set()
+            print(f"       → {len(project_links)}件のリンクを発見")
+
+            for link in project_links[:15]:
+                try:
+                    href = link.get('href', '')
+                    if not href:
+                        continue
+
+                    # 完全なURLを構築
+                    if href.startswith('/'):
+                        project_url = f"https://camp-fire.jp{href}"
+                    elif not href.startswith('http'):
+                        continue
+                    else:
+                        project_url = href
+
+                    # 重複を除外
+                    base_url = project_url.split('?')[0].rstrip('/')
+                    if base_url in seen_urls:
+                        continue
+                    seen_urls.add(base_url)
+
+                    # プロジェクト詳細を取得
+                    project_info = self._get_campfire_project_details(project_url, keyword, filter_keywords)
+                    if project_info:
+                        projects.append(project_info)
+
+                    if len(projects) >= 5:
+                        break
+
+                except Exception:
+                    continue
+
+            return {
+                "found": len(projects) > 0,
+                "projects": projects,
+                "search_note": f"CAMPFIREで{len(projects)}件の類似製品を発見" if projects else "該当する製品が見つかりませんでした",
+                "search_attempted": True
+            }
+
+        except Exception as e:
+            print(f"     ⚠️ CAMPFIRE Selenium検索エラー: {type(e).__name__}: {e}")
+            return {"found": False, "projects": [], "search_note": str(e), "search_attempted": False}
+
+    def _search_campfire_requests(self, keyword, filter_keywords):
+        """requestsを使ったCAMPFIRE検索（フォールバック）"""
+        try:
+            search_url = f"https://camp-fire.jp/projects/search?word={requests.utils.quote(keyword)}"
+            print(f"     CAMPFIRE検索（requests フォールバック）: {keyword}")
+
             headers = {
                 'Referer': 'https://camp-fire.jp/',
                 'Cookie': 'locale=ja',
