@@ -546,7 +546,7 @@ class ManagementSheetClient(GoogleSheetsClient):
                         'status': ステータス（F列）,
                         'name': メーカー名（Y列）,
                         'email': メールアドレス（Z列）,
-                        'url': Kickstarter URL（AA列）
+                        'url': Kickstarter URL（AA列、ハイパーリンク対応）
                     },
                     ...
                 ]
@@ -559,6 +559,15 @@ class ManagementSheetClient(GoogleSheetsClient):
             ).execute()
 
             values = result.get('values', [])
+
+            # ハイパーリンク情報を取得（AA列）
+            hyperlinks = self._get_hyperlinks_from_column(
+                self.management_sheet,
+                'AA',
+                self.DATA_START_ROW,
+                self.DATA_START_ROW + len(values) - 1
+            )
+
             matched_rows = []
 
             for i, row in enumerate(values):
@@ -569,7 +578,10 @@ class ManagementSheetClient(GoogleSheetsClient):
                 status = row[self.COL_STATUS] if len(row) > self.COL_STATUS else ''
                 name = row[self.COL_NAME] if len(row) > self.COL_NAME else ''
                 email = row[self.COL_EMAIL] if len(row) > self.COL_EMAIL else ''
-                url = row[self.COL_URL] if len(row) > self.COL_URL else ''
+                cell_value = row[self.COL_URL] if len(row) > self.COL_URL else ''
+
+                # URLを取得：ハイパーリンクがあればそれを使用、なければセルの値を使用
+                url = hyperlinks.get(row_number, '') or cell_value
 
                 # ステータスが一致する行を抽出
                 status_clean = status.strip()
@@ -592,6 +604,46 @@ class ManagementSheetClient(GoogleSheetsClient):
         except HttpError as err:
             print(f'Error reading management sheet: {err}')
             return []
+
+    def _get_hyperlinks_from_column(self, sheet_name, column, start_row, end_row):
+        """
+        指定列のハイパーリンクを取得
+
+        Args:
+            sheet_name (str): シート名
+            column (str): 列名（例: 'AA'）
+            start_row (int): 開始行
+            end_row (int): 終了行
+
+        Returns:
+            dict: 行番号をキー、ハイパーリンクURLを値とする辞書
+        """
+        try:
+            result = self.service.spreadsheets().get(
+                spreadsheetId=self.spreadsheet_id,
+                ranges=[f"'{sheet_name}'!{column}{start_row}:{column}{end_row}"],
+                includeGridData=True
+            ).execute()
+
+            hyperlinks = {}
+
+            for sheet in result.get('sheets', []):
+                for data in sheet.get('data', []):
+                    row_data = data.get('rowData', [])
+                    for i, row in enumerate(row_data):
+                        row_number = start_row + i
+                        cells = row.get('values', [])
+                        if cells:
+                            cell = cells[0]
+                            hyperlink = cell.get('hyperlink', '')
+                            if hyperlink:
+                                hyperlinks[row_number] = hyperlink
+
+            return hyperlinks
+
+        except HttpError as err:
+            print(f'Warning: Could not get hyperlinks: {err}')
+            return {}
 
     def copy_to_kickstarter_sheet(self, rows, clear_existing=True):
         """
