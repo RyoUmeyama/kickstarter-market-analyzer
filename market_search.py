@@ -260,14 +260,19 @@ URL: {kickstarter_url}
         Returns:
             dict: 検索結果
         """
+        print(f"     [DEBUG] SELENIUM_AVAILABLE = {SELENIUM_AVAILABLE}")
+
         # まずSeleniumで検索を試みる
         driver = self._get_driver()
+        print(f"     [DEBUG] driver = {driver is not None}")
+
         if driver:
             result = self._search_makuake_selenium(keyword, driver)
             if result.get('found') or result.get('search_attempted'):
                 return result
 
         # Seleniumが使えない場合はRSSフォールバック
+        print("     [DEBUG] Seleniumが使えないためRSSフォールバックを使用")
         return self._search_makuake_rss(keyword)
 
     def _search_makuake_selenium(self, keyword, driver):
@@ -803,10 +808,8 @@ URL: {kickstarter_url}
         print(f"     キーワード: {', '.join(keywords)}")
 
         all_makuake_projects = []
-        all_campfire_projects = []
-        campfire_geo_restricted = False
 
-        # 2. 各キーワードで検索
+        # 2. 各キーワードでMakuakeを検索（CAMPFIREは一時的に無効化）
         for keyword in keywords[:2]:  # 最大2キーワード
             # Makuakeで検索
             makuake_results = self.search_makuake(keyword)
@@ -815,28 +818,15 @@ URL: {kickstarter_url}
                     if not any(existing['url'] == p['url'] for existing in all_makuake_projects):
                         all_makuake_projects.append(p)
 
-            # CAMPFIREで検索（フィルタキーワードを渡す）
-            campfire_results = self.search_campfire(keyword, filter_keywords)
-            if campfire_results.get('geo_restricted'):
-                campfire_geo_restricted = True
-            elif campfire_results.get('found'):
-                for p in campfire_results['projects']:
-                    if not any(existing['url'] == p['url'] for existing in all_campfire_projects):
-                        all_campfire_projects.append(p)
+        # 3. 結果を制限（最大5件に増加）
+        all_makuake_projects = all_makuake_projects[:5]
 
-        # 3. 結果を制限
-        all_makuake_projects = all_makuake_projects[:3]
-        all_campfire_projects = all_campfire_projects[:3]
-
-        has_results = len(all_makuake_projects) > 0 or len(all_campfire_projects) > 0
+        has_results = len(all_makuake_projects) > 0
 
         if has_results:
-            summary = f"Makuakeで{len(all_makuake_projects)}件、CAMPFIREで{len(all_campfire_projects)}件の類似製品を発見"
+            summary = f"Makuakeで{len(all_makuake_projects)}件の類似製品を発見"
         else:
             summary = "日本のクラウドファンディングで類似製品は見つかりませんでした。これは市場における先行者利益の可能性を示しています。"
-
-        if campfire_geo_restricted:
-            summary += "（CAMPFIRE: 海外IPアクセス制限のためスキップ）"
 
         print(f"  ✓ 検索完了: {summary}")
 
@@ -848,9 +838,9 @@ URL: {kickstarter_url}
                 "projects": all_makuake_projects
             },
             "campfire": {
-                "found": len(all_campfire_projects) > 0,
-                "projects": all_campfire_projects,
-                "geo_restricted": campfire_geo_restricted
+                "found": False,
+                "projects": [],
+                "disabled": True  # 一時的に無効化
             },
             "has_results": has_results,
             "summary": summary
@@ -901,22 +891,9 @@ URL: {kickstarter_url}
         else:
             lines.append("■ Makuake: 類似製品は見つかりませんでした\n")
 
-        # CAMPFIRE結果
-        campfire = search_results.get('campfire', {})
-        if campfire.get('geo_restricted'):
-            lines.append("■ CAMPFIRE: 海外IPからのアクセス制限のため取得できませんでした")
-            lines.append("  （GitHub Actions環境からの実行のため、日本国外のIPアドレスが使用されています）\n")
-        elif campfire.get('found', False) and campfire.get('projects'):
-            lines.append("■ CAMPFIREの類似製品（実在）:")
-            for p in campfire['projects']:
-                lines.append(f"  ・製品名: {p.get('name', '不明')}")
-                lines.append(f"    URL: {p.get('url', '')}")
-                lines.append(f"    資金調達額: {p.get('funding_amount', '非公開')}")
-                if p.get('backers'):
-                    lines.append(f"    支援者数: {p.get('backers')}人")
-                lines.append("")
-        else:
-            lines.append("■ CAMPFIRE: 類似製品は見つかりませんでした\n")
+        # CAMPFIRE結果（現在は無効化中）
+        # campfire = search_results.get('campfire', {})
+        # 注: CAMPFIREは一時的に検索対象外としています
 
         lines.append("【重要な指示】")
         lines.append("・上記の製品情報のみをレポートに使用してください")
