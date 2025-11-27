@@ -3,10 +3,6 @@ name: ステータス選択肢を同期
 on:
   workflow_dispatch:  # 手動実行
 
-permissions:
-  contents: write   # リポジトリへの書き込み権限
-  workflows: write  # ワークフローファイルの更新権限
-
 jobs:
   sync-options:
     runs-on: ubuntu-latest
@@ -15,7 +11,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
