@@ -125,6 +125,7 @@ Kickstarter URL: {kickstarter_url}
 
             # RSSアイテムを処理
             items = soup.find_all('item')
+            print(f"       → RSSから{len(items)}件のアイテムを取得")
             for item in items:
                 try:
                     title = item.find('title').get_text(strip=True) if item.find('title') else ""
@@ -155,7 +156,7 @@ Kickstarter URL: {kickstarter_url}
             }
 
         except Exception as e:
-            print(f"     ⚠️ Makuake検索エラー: {e}")
+            print(f"     ⚠️ Makuake検索エラー: {type(e).__name__}: {e}")
             return {"found": False, "projects": [], "search_note": str(e)}
 
     def _get_makuake_project_details(self, project_url):
@@ -256,6 +257,7 @@ Kickstarter URL: {kickstarter_url}
 
             # プロジェクトリンクを検索（パターン: /projects/ID/view）
             project_links = soup.select('a[href*="/projects/"][href*="/view"]')
+            print(f"       → {len(project_links)}件のリンクを発見")
 
             seen_urls = set()
             for link in project_links[:10]:
@@ -292,7 +294,7 @@ Kickstarter URL: {kickstarter_url}
             }
 
         except Exception as e:
-            print(f"     ⚠️ CAMPFIRE検索エラー: {e}")
+            print(f"     ⚠️ CAMPFIRE検索エラー: {type(e).__name__}: {e}")
             return {"found": False, "projects": [], "search_note": str(e)}
 
     def _get_campfire_project_details(self, project_url, keyword=''):
