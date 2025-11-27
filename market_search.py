@@ -121,8 +121,9 @@ Kickstarter URL: {kickstarter_url}
                     description = item.find('description').get_text(strip=True) if item.find('description') else ""
                     link = item.find('link').get_text(strip=True) if item.find('link') else ""
 
-                    # キーワードマッチング（タイトルまたは説明に含まれるか）
-                    if keyword.lower() in title.lower() or keyword.lower() in description.lower():
+                    # キーワードマッチング（タイトルに含まれる場合のみ - より厳密）
+                    # 説明文は長いため誤マッチが多い、タイトルのみで判定
+                    if keyword.lower() in title.lower():
                         if link and '/project/' in link:
                             # プロジェクト詳細を取得（メタタグから）
                             project_info = self._get_makuake_project_details(link)
@@ -135,20 +136,7 @@ Kickstarter URL: {kickstarter_url}
                 except Exception:
                     continue
 
-            # キーワードマッチしなかった場合、直近のプロジェクトを参考として取得
-            if not projects:
-                for item in items[:5]:
-                    try:
-                        link = item.find('link').get_text(strip=True) if item.find('link') else ""
-                        if link and '/project/' in link:
-                            project_info = self._get_makuake_project_details(link)
-                            if project_info:
-                                # カテゴリが一致するかチェック（緩いマッチング）
-                                projects.append(project_info)
-                                if len(projects) >= 2:
-                                    break
-                    except Exception:
-                        continue
+            # キーワードマッチしなかった場合は0件として正直に返す（嘘をつかない）
 
             return {
                 "found": len(projects) > 0,
@@ -336,7 +324,19 @@ Kickstarter URL: {kickstarter_url}
                 if backers_match:
                     backers = int(backers_match.group().replace(',', ''))
 
+            # 無効なタイトルを除外（通知ページなど非プロジェクト）
+            invalid_titles = [
+                "プロジェクト公開の通知を受け取ろう",
+                "通知を受け取る",
+                "お気に入り",
+                "ログイン",
+            ]
+
             if title and title != "不明":
+                # 無効なタイトルかチェック
+                if any(invalid in title for invalid in invalid_titles):
+                    return None
+
                 return {
                     "name": title[:100],
                     "url": project_url.split('?')[0],
