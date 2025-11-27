@@ -55,6 +55,15 @@ jobs:
         run: |
           echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > credentials.json
 
+      - name: Debug - Check code version
+        run: |
+          echo "=== Checking market_search.py version ==="
+          grep -A5 "def search_makuake" market_search.py | head -15
+          echo "=== Checking for DEBUG log ==="
+          grep "DEBUG.*SELENIUM" market_search.py || echo "DEBUG log not found"
+          echo "=== Checking CAMPFIRE in search_similar_products ==="
+          grep -A30 "def search_similar_products" market_search.py | grep -i campfire || echo "CAMPFIRE disabled"
+
       - name: Extract from management sheet
         run: |
           echo "抽出ステータス: ${{ github.event.inputs.status }}"
