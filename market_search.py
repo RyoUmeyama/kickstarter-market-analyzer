@@ -56,7 +56,7 @@ class MarketSearcher:
 
         try:
             prompt = f"""以下のKickstarter製品について、日本のクラウドファンディング（MakuakeやCAMPFIRE）で
-類似製品を検索するための適切な日本語キーワードを提案してください。
+類似製品を検索するための【具体的な】日本語キーワードを提案してください。
 
 Kickstarter URL: {kickstarter_url}
 製品名/メーカー: {product_name}
@@ -64,10 +64,20 @@ Kickstarter URL: {kickstarter_url}
 回答形式（JSON）:
 {{"keywords": ["検索キーワード1", "検索キーワード2"], "category": "製品カテゴリ"}}
 
-注意:
-- Makuake/CAMPFIREの検索で使える具体的なキーワード（1-2語）
-- 例: 「知育玩具」「ブロック」「ガジェット」「スマートウォッチ」など
-- カテゴリは「知育玩具」「ガジェット」「生活用品」「アウトドア」などの分類
+【重要】キーワード選定ルール:
+1. 具体的な製品名を使用してください
+   ✗ 悪い例: 「ガジェット」「電子機器」「生活用品」「アウトドア用品」（範囲が広すぎる）
+   ○ 良い例: 「キーボード」「マウス」「スピーカー」「テント」「焚き火台」（具体的）
+
+2. 製品の種類を特定できるキーワード
+   ✗ 悪い例: 「知育」「教育」（抽象的）
+   ○ 良い例: 「ブロック玩具」「パズル」「積み木」（具体的な製品形態）
+
+3. 検索でヒットしやすい一般的な日本語名称
+   ✗ 悪い例: 「SpinBrick」（英語の製品名そのまま）
+   ○ 良い例: 「回転ブロック」「知育ブロック」（日本語で検索可能）
+
+キーワードは2つまで、それぞれ具体的な製品カテゴリを表すものにしてください。
 """
 
             response = self.client.chat.completions.create(
@@ -265,7 +275,7 @@ Kickstarter URL: {kickstarter_url}
                         project_url = href
 
                     # プロジェクト詳細を取得
-                    project_info = self._get_campfire_project_details(project_url)
+                    project_info = self._get_campfire_project_details(project_url, keyword)
                     if project_info:
                         projects.append(project_info)
 
@@ -285,15 +295,16 @@ Kickstarter URL: {kickstarter_url}
             print(f"     ⚠️ CAMPFIRE検索エラー: {e}")
             return {"found": False, "projects": [], "search_note": str(e)}
 
-    def _get_campfire_project_details(self, project_url):
+    def _get_campfire_project_details(self, project_url, keyword=''):
         """
         CAMPFIREプロジェクトの詳細を取得
 
         Args:
             project_url (str): プロジェクトURL
+            keyword (str): 検索キーワード（タイトルに含まれるかチェック用）
 
         Returns:
-            dict: プロジェクト情報
+            dict: プロジェクト情報（キーワードがタイトルに含まれない場合はNone）
         """
         try:
             response = self.session.get(project_url, timeout=10)
@@ -336,6 +347,36 @@ Kickstarter URL: {kickstarter_url}
                 # 無効なタイトルかチェック
                 if any(invalid in title for invalid in invalid_titles):
                     return None
+
+                # キーワードがタイトルに含まれるかチェック（厳密なマッチング）
+                if keyword:
+                    # キーワードを分解（例: 「知育ブロック」→「知育」「ブロック」）
+                    keyword_parts = []
+                    if len(keyword) >= 4:
+                        # 4文字以上の場合、2文字ずつに分解も試す
+                        keyword_parts = [keyword]
+                        # 複合語の場合、部分的なマッチも許可
+                        for i in range(2, len(keyword)):
+                            keyword_parts.append(keyword[:i])
+                            keyword_parts.append(keyword[i:])
+                    else:
+                        keyword_parts = [keyword]
+
+                    # キーワードの主要部分がタイトルに含まれるかチェック
+                    title_lower = title.lower()
+                    keyword_matched = keyword.lower() in title_lower
+                    if not keyword_matched:
+                        # 部分マッチ（「ブロック」「積み木」など）
+                        partial_keywords = ['ブロック', '積み木', 'パズル', '玩具', 'おもちゃ', 'キーボード',
+                                          'マウス', 'スピーカー', 'イヤホン', 'ヘッドホン', '財布', 'バッグ',
+                                          'テント', 'チェア', 'ライト', '時計', 'カメラ']
+                        for pk in partial_keywords:
+                            if pk in keyword and pk in title_lower:
+                                keyword_matched = True
+                                break
+
+                    if not keyword_matched:
+                        return None
 
                 return {
                     "name": title[:100],
