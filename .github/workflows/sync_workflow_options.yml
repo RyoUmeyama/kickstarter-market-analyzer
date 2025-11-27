@@ -4,7 +4,8 @@ on:
   workflow_dispatch:  # 手動実行
 
 permissions:
-  contents: write  # リポジトリへの書き込み権限
+  contents: write   # リポジトリへの書き込み権限
+  workflows: write  # ワークフローファイルの更新権限
 
 jobs:
   sync-options:
