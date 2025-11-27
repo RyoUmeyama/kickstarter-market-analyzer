@@ -35,8 +35,14 @@ jobs:
 
       - name: Setup Chrome
         uses: browser-actions/setup-chrome@latest
+        id: setup-chrome
         with:
           chrome-version: stable
+
+      - name: Verify Chrome installation
+        run: |
+          echo "Chrome path: ${{ steps.setup-chrome.outputs.chrome-path }}"
+          google-chrome --version || ${{ steps.setup-chrome.outputs.chrome-path }} --version
 
       - name: Create .env file
         run: |

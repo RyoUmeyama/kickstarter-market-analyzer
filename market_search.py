@@ -23,8 +23,10 @@ try:
     from selenium.webdriver.support import expected_conditions as EC
     from webdriver_manager.chrome import ChromeDriverManager
     SELENIUM_AVAILABLE = True
-except ImportError:
+    print("  ✓ Seleniumモジュールを読み込みました")
+except ImportError as e:
     SELENIUM_AVAILABLE = False
+    print(f"  ⚠️ Seleniumモジュールが利用できません: {e}")
 
 
 class MarketSearcher:
@@ -63,12 +65,14 @@ class MarketSearcher:
     def _get_driver(self):
         """Seleniumドライバーを取得（遅延初期化）"""
         if not SELENIUM_AVAILABLE:
+            print("     ⚠️ Seleniumが利用できないためスキップ")
             return None
 
         if self._driver is None:
             try:
+                print("     Seleniumブラウザを初期化中...")
                 options = Options()
-                options.add_argument('--headless')
+                options.add_argument('--headless=new')  # 新しいheadlessモード
                 options.add_argument('--no-sandbox')
                 options.add_argument('--disable-dev-shm-usage')
                 options.add_argument('--disable-gpu')
@@ -76,12 +80,31 @@ class MarketSearcher:
                 options.add_argument('--lang=ja-JP')
                 options.add_argument('--accept-lang=ja-JP,ja;q=0.9')
                 options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+                # GitHub Actions用の追加オプション
+                options.add_argument('--disable-extensions')
+                options.add_argument('--disable-software-rasterizer')
+                options.add_argument('--single-process')
+                options.add_argument('--ignore-certificate-errors')
 
-                service = Service(ChromeDriverManager().install())
-                self._driver = webdriver.Chrome(service=service, options=options)
-                print("     ✓ Seleniumブラウザを初期化しました")
+                # 方法1: webdriver-managerを使用
+                print("     ChromeDriverをセットアップ中（webdriver-manager）...")
+                try:
+                    service = Service(ChromeDriverManager().install())
+                    self._driver = webdriver.Chrome(service=service, options=options)
+                    print("     ✓ Seleniumブラウザを初期化しました（webdriver-manager）")
+                except Exception as e1:
+                    print(f"     webdriver-manager失敗: {e1}")
+                    # 方法2: システムのchromedriver を使用
+                    print("     システムのChromedriverを試行中...")
+                    try:
+                        self._driver = webdriver.Chrome(options=options)
+                        print("     ✓ Seleniumブラウザを初期化しました（システムchrome）")
+                    except Exception as e2:
+                        print(f"     システムchrome失敗: {e2}")
+                        raise e2
+
             except Exception as e:
-                print(f"     ⚠️ Selenium初期化エラー: {e}")
+                print(f"     ⚠️ Selenium初期化エラー: {type(e).__name__}: {e}")
                 self._driver = None
 
         return self._driver
