@@ -187,7 +187,6 @@ kickstarter-market-analyzer/
 ├── .github/
 │   └── workflows/
 │       ├── extract_and_generate.yml    # 管理表から抽出してメール生成
-│       ├── update_reports.yml          # kickstarterシート直接更新用
 │       └── sync_workflow_options.yml   # ステータス選択肢を同期
 ├── main.py                              # メール生成メインスクリプト
 ├── extract_from_management.py           # 管理表からの抽出スクリプト
