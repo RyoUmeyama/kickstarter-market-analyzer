@@ -3,6 +3,9 @@ name: ステータス選択肢を同期
 on:
   workflow_dispatch:  # 手動実行
 
+permissions:
+  contents: write  # リポジトリへの書き込み権限
+
 jobs:
   sync-options:
     runs-on: ubuntu-latest
