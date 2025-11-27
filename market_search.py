@@ -40,6 +40,61 @@ class MarketSearcher:
             'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
         })
 
+    def _fetch_kickstarter_info(self, kickstarter_url):
+        """
+        Kickstarterページから製品情報を取得
+
+        Args:
+            kickstarter_url (str): Kickstarter URL
+
+        Returns:
+            dict: 製品情報（title, description, category）
+        """
+        try:
+            # /creator を除去してプロジェクトページを取得
+            project_url = kickstarter_url.replace('/creator', '').split('?')[0]
+            print(f"     Kickstarter製品情報を取得中...")
+
+            response = self.session.get(project_url, timeout=15)
+            response.raise_for_status()
+            response.encoding = 'utf-8'
+
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            # タイトル取得
+            title = ""
+            title_elem = soup.select_one('h2.project-name, meta[property="og:title"]')
+            if title_elem:
+                if title_elem.name == 'meta':
+                    title = title_elem.get('content', '')
+                else:
+                    title = title_elem.get_text(strip=True)
+
+            # 説明取得
+            description = ""
+            desc_elem = soup.select_one('meta[property="og:description"], meta[name="description"]')
+            if desc_elem:
+                description = desc_elem.get('content', '')
+
+            # カテゴリ取得
+            category = ""
+            category_elem = soup.select_one('a.category-name, span.project-category')
+            if category_elem:
+                category = category_elem.get_text(strip=True)
+
+            print(f"       タイトル: {title[:50]}..." if title else "       タイトル: 取得失敗")
+            print(f"       カテゴリ: {category}" if category else "       カテゴリ: 取得失敗")
+
+            return {
+                "title": title,
+                "description": description[:500] if description else "",
+                "category": category
+            }
+
+        except Exception as e:
+            print(f"     ⚠️ Kickstarter情報取得エラー: {e}")
+            return {"title": "", "description": "", "category": ""}
+
     def extract_product_keywords(self, kickstarter_url, product_name=''):
         """
         Kickstarter URLから製品カテゴリとキーワードを抽出
@@ -49,56 +104,68 @@ class MarketSearcher:
             product_name (str): 製品名/メーカー名
 
         Returns:
-            dict: キーワード情報
+            dict: キーワード情報（keywords, category, filter_keywords）
         """
         if not self.api_available:
-            return {"keywords": [product_name], "category": "製品"}
+            return {"keywords": [product_name], "category": "製品", "filter_keywords": []}
 
         try:
+            # Kickstarterから製品情報を取得
+            ks_info = self._fetch_kickstarter_info(kickstarter_url)
+
             prompt = f"""以下のKickstarter製品について、日本のクラウドファンディング（MakuakeやCAMPFIRE）で
-類似製品を検索するための【具体的な】日本語キーワードを提案してください。
+類似製品を検索するための情報を提供してください。
 
-Kickstarter URL: {kickstarter_url}
+【Kickstarter製品情報】
+URL: {kickstarter_url}
 製品名/メーカー: {product_name}
+タイトル: {ks_info.get('title', '不明')}
+カテゴリ: {ks_info.get('category', '不明')}
+説明: {ks_info.get('description', '不明')[:300]}
 
-回答形式（JSON）:
-{{"keywords": ["検索キーワード1", "検索キーワード2"], "category": "製品カテゴリ"}}
+【回答形式（JSON）】:
+{{
+    "keywords": ["検索キーワード1", "検索キーワード2"],
+    "category": "製品カテゴリ（日本語）",
+    "filter_keywords": ["フィルタ用キーワード1", "フィルタ用キーワード2", "フィルタ用キーワード3"]
+}}
 
-【重要】キーワード選定ルール:
-1. 具体的な製品名を使用してください
-   ✗ 悪い例: 「ガジェット」「電子機器」「生活用品」「アウトドア用品」（範囲が広すぎる）
-   ○ 良い例: 「キーボード」「マウス」「スピーカー」「テント」「焚き火台」（具体的）
+【重要】回答ルール:
+1. keywords: 検索用キーワード（2つまで）
+   - 日本のクラウドファンディングで使われる一般的な日本語名称
+   - 具体的な製品カテゴリ（例: 「キーボード」「ブロック玩具」「焚き火台」）
+   - 広すぎる語は避ける（✗「ガジェット」「電子機器」）
 
-2. 製品の種類を特定できるキーワード
-   ✗ 悪い例: 「知育」「教育」（抽象的）
-   ○ 良い例: 「ブロック玩具」「パズル」「積み木」（具体的な製品形態）
+2. category: この製品の日本語カテゴリ名
 
-3. 検索でヒットしやすい一般的な日本語名称
-   ✗ 悪い例: 「SpinBrick」（英語の製品名そのまま）
-   ○ 良い例: 「回転ブロック」「知育ブロック」（日本語で検索可能）
-
-キーワードは2つまで、それぞれ具体的な製品カテゴリを表すものにしてください。
+3. filter_keywords: 検索結果から類似製品を判別するためのキーワード（3つまで）
+   - この製品と同じカテゴリの製品に含まれる可能性が高い単語
+   - 例: ブロック玩具なら ["ブロック", "積み木", "知育", "玩具", "おもちゃ"]
+   - 例: キーボードなら ["キーボード", "タイピング", "入力デバイス"]
+   - 例: 財布なら ["財布", "ウォレット", "革", "カード"]
 """
 
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "JSON形式で回答してください。"},
+                    {"role": "system", "content": "JSON形式で回答してください。製品の特徴を正確に分析してください。"},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=200,
+                max_tokens=300,
                 temperature=0.3
             )
 
             result_text = response.choices[0].message.content.strip()
             json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
             if json_match:
-                return json.loads(json_match.group())
-            return {"keywords": [product_name], "category": "製品"}
+                result = json.loads(json_match.group())
+                print(f"     フィルタキーワード: {result.get('filter_keywords', [])}")
+                return result
+            return {"keywords": [product_name], "category": "製品", "filter_keywords": []}
 
         except Exception as e:
             print(f"  ⚠️ キーワード抽出エラー: {e}")
-            return {"keywords": [product_name], "category": "製品"}
+            return {"keywords": [product_name], "category": "製品", "filter_keywords": []}
 
     def search_makuake(self, keyword):
         """
@@ -233,16 +300,19 @@ Kickstarter URL: {kickstarter_url}
 
         return None
 
-    def search_campfire(self, keyword):
+    def search_campfire(self, keyword, filter_keywords=None):
         """
         CAMPFIREで類似製品を検索（ウェブスクレイピング）
 
         Args:
             keyword (str): 検索キーワード
+            filter_keywords (list): 結果フィルタリング用キーワード（動的に生成）
 
         Returns:
             dict: 検索結果
         """
+        if filter_keywords is None:
+            filter_keywords = []
         try:
             # CAMPFIRE検索URL
             search_url = f"https://camp-fire.jp/projects/search?word={requests.utils.quote(keyword)}"
@@ -276,8 +346,8 @@ Kickstarter URL: {kickstarter_url}
                     else:
                         project_url = href
 
-                    # プロジェクト詳細を取得
-                    project_info = self._get_campfire_project_details(project_url, keyword)
+                    # プロジェクト詳細を取得（フィルタキーワードを渡す）
+                    project_info = self._get_campfire_project_details(project_url, keyword, filter_keywords)
                     if project_info:
                         projects.append(project_info)
 
@@ -297,17 +367,20 @@ Kickstarter URL: {kickstarter_url}
             print(f"     ⚠️ CAMPFIRE検索エラー: {type(e).__name__}: {e}")
             return {"found": False, "projects": [], "search_note": str(e)}
 
-    def _get_campfire_project_details(self, project_url, keyword=''):
+    def _get_campfire_project_details(self, project_url, keyword='', filter_keywords=None):
         """
         CAMPFIREプロジェクトの詳細を取得
 
         Args:
             project_url (str): プロジェクトURL
             keyword (str): 検索キーワード（タイトルに含まれるかチェック用）
+            filter_keywords (list): 動的フィルタキーワード（製品特徴から生成）
 
         Returns:
             dict: プロジェクト情報（キーワードがタイトルに含まれない場合はNone）
         """
+        if filter_keywords is None:
+            filter_keywords = []
         try:
             response = self.session.get(project_url, timeout=10)
             response.raise_for_status()
@@ -351,19 +424,36 @@ Kickstarter URL: {kickstarter_url}
                     print(f"         ✗ 除外（無効タイトル）: {title[:40]}...")
                     return None
 
-                # キーワードがタイトルに含まれるかチェック（厳密なマッチング）
-                if keyword:
-                    # キーワードの主要部分がタイトルに含まれるかチェック
-                    keyword_matched = keyword in title
-                    if not keyword_matched:
-                        # 部分マッチ（「ブロック」「積み木」など）
-                        partial_keywords = ['ブロック', '積み木', 'パズル', '玩具', 'おもちゃ', '知育',
-                                          'キーボード', 'マウス', 'スピーカー', 'イヤホン', 'ヘッドホン',
-                                          '財布', 'バッグ', 'テント', 'チェア', 'ライト', '時計', 'カメラ']
-                        for pk in partial_keywords:
-                            if pk in keyword and pk in title:
+                # キーワードがタイトルに含まれるかチェック
+                if keyword or filter_keywords:
+                    keyword_matched = False
+
+                    # 検索キーワード完全マッチ
+                    if keyword and keyword in title:
+                        keyword_matched = True
+                        print(f"         ✓ 完全マッチ（{keyword}）: {title[:40]}...")
+
+                    # フィルタキーワードでの部分マッチ（動的に生成されたキーワード）
+                    if not keyword_matched and filter_keywords:
+                        for fk in filter_keywords:
+                            if fk in title:
                                 keyword_matched = True
-                                print(f"         ✓ マッチ（{pk}）: {title[:40]}...")
+                                print(f"         ✓ フィルタマッチ（{fk}）: {title[:40]}...")
+                                break
+
+                    # 検索キーワードの部分一致も試す（キーワードが複合語の場合）
+                    if not keyword_matched and keyword and len(keyword) >= 4:
+                        # 前半・後半に分割してマッチを試す
+                        for i in range(2, len(keyword) - 1):
+                            part1 = keyword[:i]
+                            part2 = keyword[i:]
+                            if len(part1) >= 2 and part1 in title:
+                                keyword_matched = True
+                                print(f"         ✓ 部分マッチ（{part1}）: {title[:40]}...")
+                                break
+                            if len(part2) >= 2 and part2 in title:
+                                keyword_matched = True
+                                print(f"         ✓ 部分マッチ（{part2}）: {title[:40]}...")
                                 break
 
                     if not keyword_matched:
@@ -401,6 +491,7 @@ Kickstarter URL: {kickstarter_url}
         keyword_info = self.extract_product_keywords(kickstarter_url, product_name)
         keywords = keyword_info.get('keywords', [product_name])
         category = keyword_info.get('category', '製品')
+        filter_keywords = keyword_info.get('filter_keywords', [])
 
         print(f"     カテゴリ: {category}")
         print(f"     キーワード: {', '.join(keywords)}")
@@ -417,8 +508,8 @@ Kickstarter URL: {kickstarter_url}
                     if not any(existing['url'] == p['url'] for existing in all_makuake_projects):
                         all_makuake_projects.append(p)
 
-            # CAMPFIREで検索
-            campfire_results = self.search_campfire(keyword)
+            # CAMPFIREで検索（フィルタキーワードを渡す）
+            campfire_results = self.search_campfire(keyword, filter_keywords)
             if campfire_results.get('found'):
                 for p in campfire_results['projects']:
                     if not any(existing['url'] == p['url'] for existing in all_campfire_projects):
