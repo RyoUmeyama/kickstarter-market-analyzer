@@ -348,38 +348,29 @@ Kickstarter URL: {kickstarter_url}
             if title and title != "不明":
                 # 無効なタイトルかチェック
                 if any(invalid in title for invalid in invalid_titles):
+                    print(f"         ✗ 除外（無効タイトル）: {title[:40]}...")
                     return None
 
                 # キーワードがタイトルに含まれるかチェック（厳密なマッチング）
                 if keyword:
-                    # キーワードを分解（例: 「知育ブロック」→「知育」「ブロック」）
-                    keyword_parts = []
-                    if len(keyword) >= 4:
-                        # 4文字以上の場合、2文字ずつに分解も試す
-                        keyword_parts = [keyword]
-                        # 複合語の場合、部分的なマッチも許可
-                        for i in range(2, len(keyword)):
-                            keyword_parts.append(keyword[:i])
-                            keyword_parts.append(keyword[i:])
-                    else:
-                        keyword_parts = [keyword]
-
                     # キーワードの主要部分がタイトルに含まれるかチェック
-                    title_lower = title.lower()
-                    keyword_matched = keyword.lower() in title_lower
+                    keyword_matched = keyword in title
                     if not keyword_matched:
                         # 部分マッチ（「ブロック」「積み木」など）
-                        partial_keywords = ['ブロック', '積み木', 'パズル', '玩具', 'おもちゃ', 'キーボード',
-                                          'マウス', 'スピーカー', 'イヤホン', 'ヘッドホン', '財布', 'バッグ',
-                                          'テント', 'チェア', 'ライト', '時計', 'カメラ']
+                        partial_keywords = ['ブロック', '積み木', 'パズル', '玩具', 'おもちゃ', '知育',
+                                          'キーボード', 'マウス', 'スピーカー', 'イヤホン', 'ヘッドホン',
+                                          '財布', 'バッグ', 'テント', 'チェア', 'ライト', '時計', 'カメラ']
                         for pk in partial_keywords:
-                            if pk in keyword and pk in title_lower:
+                            if pk in keyword and pk in title:
                                 keyword_matched = True
+                                print(f"         ✓ マッチ（{pk}）: {title[:40]}...")
                                 break
 
                     if not keyword_matched:
+                        print(f"         ✗ 除外（キーワード不一致）: {title[:40]}...")
                         return None
 
+                print(f"         ✓ 採用: {title[:40]}...")
                 return {
                     "name": title[:100],
                     "url": project_url.split('?')[0],
