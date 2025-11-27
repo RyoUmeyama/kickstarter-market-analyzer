@@ -32,12 +32,15 @@ class MarketSearcher:
             self.client = None
             self.api_available = False
 
-        # HTTPセッション設定
+        # HTTPセッション設定（日本からのアクセスとして認識させる）
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+            'Accept-Language': 'ja-JP,ja;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
         })
 
     def _fetch_kickstarter_info(self, kickstarter_url):
@@ -318,9 +321,24 @@ URL: {kickstarter_url}
             search_url = f"https://camp-fire.jp/projects/search?word={requests.utils.quote(keyword)}"
             print(f"     CAMPFIRE検索: {keyword}")
 
-            response = self.session.get(search_url, timeout=15)
+            # 日本語サイトを強制するためのヘッダー追加
+            headers = {
+                'Referer': 'https://camp-fire.jp/',
+                'Cookie': 'locale=ja',
+            }
+            response = self.session.get(search_url, timeout=15, headers=headers)
             response.raise_for_status()
             response.encoding = 'utf-8'
+
+            # 海外IPからのアクセス制限を検知
+            if 'Welcome' in response.text and 'International' in response.text:
+                print(f"     ⚠️ CAMPFIRE: 海外IPからのアクセス制限が検知されました")
+                return {
+                    "found": False,
+                    "projects": [],
+                    "search_note": "海外からのアクセス制限のため取得できませんでした（GitHub Actions環境）",
+                    "geo_restricted": True
+                }
 
             soup = BeautifulSoup(response.text, 'html.parser')
             projects = []
@@ -410,12 +428,14 @@ URL: {kickstarter_url}
                 if backers_match:
                     backers = int(backers_match.group().replace(',', ''))
 
-            # 無効なタイトルを除外（通知ページなど非プロジェクト）
+            # 無効なタイトルを除外（通知ページなど非プロジェクト、海外リダイレクト）
             invalid_titles = [
                 "プロジェクト公開の通知を受け取ろう",
                 "通知を受け取る",
                 "お気に入り",
                 "ログイン",
+                "Welcome",  # 海外IPからのアクセス時のリダイレクトページ
+                "International",
             ]
 
             if title and title != "不明":
@@ -498,6 +518,7 @@ URL: {kickstarter_url}
 
         all_makuake_projects = []
         all_campfire_projects = []
+        campfire_geo_restricted = False
 
         # 2. 各キーワードで検索
         for keyword in keywords[:2]:  # 最大2キーワード
@@ -510,7 +531,9 @@ URL: {kickstarter_url}
 
             # CAMPFIREで検索（フィルタキーワードを渡す）
             campfire_results = self.search_campfire(keyword, filter_keywords)
-            if campfire_results.get('found'):
+            if campfire_results.get('geo_restricted'):
+                campfire_geo_restricted = True
+            elif campfire_results.get('found'):
                 for p in campfire_results['projects']:
                     if not any(existing['url'] == p['url'] for existing in all_campfire_projects):
                         all_campfire_projects.append(p)
@@ -526,6 +549,9 @@ URL: {kickstarter_url}
         else:
             summary = "日本のクラウドファンディングで類似製品は見つかりませんでした。これは市場における先行者利益の可能性を示しています。"
 
+        if campfire_geo_restricted:
+            summary += "（CAMPFIRE: 海外IPアクセス制限のためスキップ）"
+
         print(f"  ✓ 検索完了: {summary}")
 
         return {
@@ -537,7 +563,8 @@ URL: {kickstarter_url}
             },
             "campfire": {
                 "found": len(all_campfire_projects) > 0,
-                "projects": all_campfire_projects
+                "projects": all_campfire_projects,
+                "geo_restricted": campfire_geo_restricted
             },
             "has_results": has_results,
             "summary": summary
@@ -590,7 +617,10 @@ URL: {kickstarter_url}
 
         # CAMPFIRE結果
         campfire = search_results.get('campfire', {})
-        if campfire.get('found', False) and campfire.get('projects'):
+        if campfire.get('geo_restricted'):
+            lines.append("■ CAMPFIRE: 海外IPからのアクセス制限のため取得できませんでした")
+            lines.append("  （GitHub Actions環境からの実行のため、日本国外のIPアドレスが使用されています）\n")
+        elif campfire.get('found', False) and campfire.get('projects'):
             lines.append("■ CAMPFIREの類似製品（実在）:")
             for p in campfire['projects']:
                 lines.append(f"  ・製品名: {p.get('name', '不明')}")
