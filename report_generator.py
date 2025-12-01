@@ -171,6 +171,11 @@ class ReportGenerator:
 - 市場調査データに記載された実データのみ使用
 - 架空の製品名・URL・金額は絶対に生成しない
 
+=== フォーマット（必須） ===
+- レポートの各セクションは必ず番号付き: 「1. タイトル」「2. タイトル」「3. タイトル」
+- □や■などの記号は使用禁止
+- サブ項目には「・」を使用
+
 OUTPUT LANGUAGE: ENGLISH ONLY"""
 
             print(f"  🤖 Calling OpenAI API with template + prompt to generate complete English body...")
@@ -203,13 +208,15 @@ OUTPUT LANGUAGE: ENGLISH ONLY"""
    - Fabricating product names, URLs, or funding amounts
    - Adding content not in the template structure
 
-=== FORMATTING ===
+=== FORMATTING (MUST FOLLOW) ===
 
-1. Use numbered sections: "1. Title", "2. Title"
-2. Use "■" for sub-headers, "・" for bullets
-3. NO Markdown (**, ##, -, []())
-4. URLs as plain text
-5. Convert USD to JPY
+1. MAIN SECTIONS must use numbered format: "1. Title", "2. Title", "3. Title"
+   - Example: "1. Product Features", "2. Kickstarter Price", "3. Market Analysis"
+   - NEVER use bullets (・, -, □, ■) for main section titles
+2. Sub-items within sections: use "・" for bullet points
+3. NO Markdown symbols: no **, ##, -, □, or []()
+4. URLs as plain text only
+5. Convert USD to JPY (e.g., $49 = approximately ¥7,300)
 
 === OUTPUT ===
 
