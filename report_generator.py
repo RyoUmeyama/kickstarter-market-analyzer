@@ -147,79 +147,76 @@ class ReportGenerator:
                 market_research_data = self.market_searcher.format_for_prompt(search_results)
 
             # プロンプト + 本文テンプレート + 市場調査データを組み合わせる
-            combined_prompt = f"""以下は、英語の本文テンプレートと日本語の分析指示、および実際の市場調査データです。
+            combined_prompt = f"""あなたの仕事は、以下の【メール本文テンプレート】をベースにして、【分析指示】に従ってレポート部分を生成し、完成したメール本文を出力することです。
 
-【Email Body Template (English)】
+=== 最重要ルール ===
+1. 【メール本文テンプレート】の文章構造・文面を必ず維持すること
+2. テンプレート内の {{{{レポート}}}} または {{{{レポ―ト}}}} の部分のみを、生成したレポートで置き換えること
+3. テンプレートの挨拶文、署名、その他の部分は一切変更しないこと
+4. テンプレートにない文章を勝手に追加しないこと
+
+【メール本文テンプレート（これをベースにする）】
 {processed_body_template}
 
-【Analysis Instructions (Japanese)】
+【分析指示（レポート生成用）】
 {processed_prompt}
 
 {market_research_data}
 
-IMPORTANT INSTRUCTIONS:
-- Generate the COMPLETE email body in ENGLISH ONLY
-- Insert the analysis results into the template where {{{{レポート}}}} appears
-- Keep the entire template structure in English
-- Replace ONLY the {{{{レポート}}}} section with the analysis results
-- Do NOT include Subject: line - output email body only
-- Use plain text URLs (https://...), NOT markdown links [text](url)
-- Output must be ready for copy-paste into an email client
-- ONLY use the product data provided in the market research section above
-- If no similar products were found, mention this positively (new market opportunity)
-- NEVER invent or fabricate any product names, URLs, or funding amounts
+=== 出力ルール ===
+- テンプレートの構造を完全に保持し、{{{{レポート}}}} 部分のみを置き換える
+- 出力は英語のみ（ENGLISH ONLY）
+- Subject行は含めない - メール本文のみ出力
+- URLはプレーンテキストで記載（マークダウンリンク禁止）
+- 市場調査データに記載された実データのみ使用
+- 架空の製品名・URL・金額は絶対に生成しない
 
-OUTPUT LANGUAGE: ENGLISH ONLY (英語のみで出力してください)"""
+OUTPUT LANGUAGE: ENGLISH ONLY"""
 
             print(f"  🤖 Calling OpenAI API with template + prompt to generate complete English body...")
 
             # システムプロンプトを構築（共通プロンプト + デフォルト指示）
-            default_system_prompt = """You are a professional market research analyst specializing in the Japanese market.
+            default_system_prompt = """You are a professional email composer. Your task is to complete an email by filling in the report section while preserving the original template structure.
 
-=== MOST IMPORTANT: DATA ACCURACY (MUST FOLLOW) ===
+=== CRITICAL: TEMPLATE PRESERVATION ===
+
+1. The email template provided is the BASE STRUCTURE - you MUST preserve it exactly
+2. Only replace the {{レポート}} or {{レポ―ト}} placeholder with the generated report
+3. DO NOT modify, remove, or rearrange any other parts of the template
+4. Keep all greetings, signatures, and other template text unchanged
+5. DO NOT add new sections that don't exist in the template
+
+=== DATA ACCURACY ===
 
 1. ONLY USE REAL DATA from the "市場調査結果" (Market Research Results) section
-   - Product names, URLs, funding amounts, and backer counts MUST come from the provided data
-   - NEVER invent, fabricate, or guess any product information
-   - If data is not provided, DO NOT include it
+   - Product names, URLs, funding amounts MUST come from provided data
+   - NEVER fabricate any product information
 
 2. WHEN NO SIMILAR PRODUCTS WERE FOUND:
-   - Clearly state: "No similar products were found on Japanese crowdfunding platforms"
-   - Present this as a market opportunity (first mover advantage)
-   - DO NOT fabricate fictional products to fill the gap
+   - State clearly: "No similar products were found"
+   - Present as market opportunity
+   - DO NOT make up fictional products
 
-3. PREDICTIONS AND ANALYSIS must be based on real data:
-   - If similar products exist: base predictions on their actual performance
-     Example: "Based on Product A achieving ¥5,000,000 with 500 backers, we estimate..."
-   - If no similar products: state "Due to lack of comparable data, specific predictions are difficult"
-   - Always cite the source data for any prediction
+3. PREDICTIONS must be based on real data with citations
 
-4. INFORMATION SOURCES:
-   - Only include URLs that appear in the market research data
-   - List all referenced URLs at the end under "Information Sources"
-   - The Kickstarter URL is the only exception (always include it)
+4. FORBIDDEN:
+   - Fabricating product names, URLs, or funding amounts
+   - Adding content not in the template structure
 
-5. FORBIDDEN:
-   - Fabricating product names that don't exist in the data
-   - Making up funding amounts or backer numbers
-   - Inventing URLs (especially Amazon, Makuake, or any other site)
-   - Claiming EC site sales data without source
+=== FORMATTING ===
 
-=== FORMATTING RULES ===
-
-1. Use numbered sections: "1. Title", "2. Title", "3. Title"
-2. Use "■" for sub-section headers
-3. Use "・" for bullet points
-4. NO Markdown: no **, ##, -, or []() links
-5. URLs must be plain text
-6. Convert USD to JPY (e.g., $49 = approximately ¥7,300)
+1. Use numbered sections: "1. Title", "2. Title"
+2. Use "■" for sub-headers, "・" for bullets
+3. NO Markdown (**, ##, -, []())
+4. URLs as plain text
+5. Convert USD to JPY
 
 === OUTPUT ===
 
-- Language: ENGLISH ONLY
-- Insert analysis where {{レポート}} appears
-- Output email body only (no subject line)
-- Be professional and honest about data limitations"""
+- ENGLISH ONLY
+- Preserve template structure completely
+- Replace only {{レポート}} section
+- No subject line"""
 
             # 共通プロンプトがある場合は先頭に追加
             if common_prompt and common_prompt.strip():
