@@ -52,8 +52,15 @@ def list_statuses(client):
     print()
 
 
-def extract_rows(client, target_statuses, generate_emails=False):
-    """指定ステータスの行を抽出"""
+def extract_rows(client, target_statuses, generate_emails=False, limit=None):
+    """指定ステータスの行を抽出
+
+    Args:
+        client: ManagementSheetClient
+        target_statuses: 抽出対象のステータスリスト
+        generate_emails: メール生成も実行するか
+        limit: 抽出件数の上限（Noneの場合は無制限）
+    """
     all_rows = []
 
     for status in target_statuses:
@@ -68,6 +75,13 @@ def extract_rows(client, target_statuses, generate_emails=False):
     if not all_rows:
         print("\n抽出対象の行がありません。")
         return
+
+    # 件数制限を適用
+    total_found = len(all_rows)
+    if limit and limit > 0 and len(all_rows) > limit:
+        all_rows = all_rows[:limit]
+        print(f"\n⚠️  件数制限により {total_found}件 → {limit}件 に制限しました")
+        print(f"   残り {total_found - limit}件は次回処理してください")
 
     # kickstarterシートにコピー
     print(f"\n合計 {len(all_rows)}件をkickstarterシートにコピーします...")
@@ -95,8 +109,11 @@ def main():
   # ステータス一覧を表示
   python extract_from_management.py --list
 
-  # ②無返信2回目の行を抽出
+  # ②無返信2回目の行を抽出（デフォルト30件まで）
   python extract_from_management.py --status "②無返信2回目　要送信"
+
+  # 件数を指定して抽出
+  python extract_from_management.py --status "②無返信2回目　要送信" --limit 50
 
   # 複数ステータスを抽出
   python extract_from_management.py --status "②無返信2回目　要送信" --status "➂無返信3回目　要送信"
@@ -108,6 +125,7 @@ def main():
     parser.add_argument('--list', action='store_true', help='利用可能なステータス一覧を表示')
     parser.add_argument('--status', action='append', help='抽出対象のステータス（複数指定可）')
     parser.add_argument('--generate', action='store_true', help='抽出後にメール生成も実行')
+    parser.add_argument('--limit', type=int, default=30, help='抽出件数の上限（デフォルト: 30件）')
 
     args = parser.parse_args()
 
@@ -125,7 +143,7 @@ def main():
     if args.list:
         list_statuses(client)
     elif args.status:
-        extract_rows(client, args.status, args.generate)
+        extract_rows(client, args.status, args.generate, args.limit)
     else:
         # 引数なしの場合はステータス一覧を表示
         list_statuses(client)

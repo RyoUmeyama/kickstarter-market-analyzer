@@ -14,6 +14,17 @@ on:
           - '➂無返信3回目　要送信'
           - '④自動返信　要送信'
           - '⑤好返信　要レポ送信'
+      limit:
+        description: '処理件数の上限'
+        required: true
+        default: '30'
+        type: choice
+        options:
+          - '10'
+          - '20'
+          - '30'
+          - '50'
+          - '100'
 
 jobs:
   extract-and-generate:
@@ -67,7 +78,8 @@ jobs:
       - name: Extract from management sheet
         run: |
           echo "抽出ステータス: ${{ github.event.inputs.status }}"
-          python3 extract_from_management.py --status "${{ github.event.inputs.status }}"
+          echo "処理件数上限: ${{ github.event.inputs.limit }}"
+          python3 extract_from_management.py --status "${{ github.event.inputs.status }}" --limit ${{ github.event.inputs.limit }}
 
       - name: Generate emails
         run: |
