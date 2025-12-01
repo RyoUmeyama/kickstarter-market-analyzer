@@ -464,7 +464,7 @@ class ManagementSheetClient(GoogleSheetsClient):
 
     def __init__(self, spreadsheet_id):
         super().__init__(spreadsheet_id, 'kickstarter')
-        self.management_sheet = '管理表'
+        self.management_sheet = 'AMANE'
         self._status_template_map = None  # キャッシュ用
 
     def get_status_template_mapping(self):
