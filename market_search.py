@@ -912,33 +912,35 @@ URL: {kickstarter_url}
 前向きに伝えてください。架空の製品名やURLは絶対に記載しないでください。
 """
 
-        lines = ["【日本クラウドファンディング市場調査結果 - 実在データ】\n"]
+        lines = ["【日本クラウドファンディング市場調査結果 - 検証済み実データ】\n"]
         lines.append(f"製品カテゴリ: {search_results.get('category', '製品')}\n")
-        lines.append("以下は実際にウェブサイトから取得した実在するプロジェクト情報です。\n")
+        lines.append("※以下のデータはMakuakeウェブサイトから自動取得した実在する情報です。\n")
 
         # Makuake結果
         makuake = search_results.get('makuake', {})
         if makuake.get('found', False) and makuake.get('projects'):
-            lines.append("■ Makuakeの類似製品（実在）:")
-            for p in makuake['projects']:
-                lines.append(f"  ・製品名: {p.get('name', '不明')}")
+            lines.append(f"■ Makuakeの類似製品（{len(makuake['projects'])}件発見）:")
+            for i, p in enumerate(makuake['projects'], 1):
+                lines.append(f"  【製品{i}】")
+                lines.append(f"    製品名: {p.get('name', '不明')}")
                 lines.append(f"    URL: {p.get('url', '')}")
                 lines.append(f"    資金調達額: {p.get('funding_amount', '非公開')}")
                 if p.get('backers'):
                     lines.append(f"    支援者数: {p.get('backers')}人")
                 lines.append("")
         else:
-            lines.append("■ Makuake: 類似製品は見つかりませんでした\n")
+            lines.append("■ Makuake: 類似製品は見つかりませんでした")
+            lines.append("  → これは市場が未開拓である可能性を示しています\n")
 
-        # CAMPFIRE結果（現在は無効化中）
-        # campfire = search_results.get('campfire', {})
-        # 注: CAMPFIREは一時的に検索対象外としています
-
-        lines.append("【重要な指示】")
-        lines.append("・上記の製品情報のみをレポートに使用してください")
-        lines.append("・URLは上記のものをそのまま使用してください")
-        lines.append("・記載されていない架空の製品名やURLは絶対に生成しないでください")
-        lines.append("・類似製品が見つからなかったプラットフォームについては、「見つからなかった」と正直に記載してください")
+        lines.append("=" * 50)
+        lines.append("【データ使用ルール - 必ず守ること】")
+        lines.append("1. 上記の製品情報のみをレポートに使用すること")
+        lines.append("2. 製品名・URL・金額・支援者数は上記データをそのまま引用")
+        lines.append("3. 上記に記載のないデータは絶対に追加しない")
+        lines.append("4. 市場予測は上記データを根拠として計算すること")
+        lines.append("5. 類似製品が0件の場合は「見つからなかった」と正直に記載")
+        lines.append("6. レポート末尾に使用したURLを「情報源」として列挙")
+        lines.append("=" * 50)
 
         return "\n".join(lines)
 
