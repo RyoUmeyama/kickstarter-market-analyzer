@@ -375,6 +375,29 @@ class GoogleSheetsClient:
             print('   共通プロンプトなしで処理を続行します')
             return ''
 
+    def get_system_settings(self):
+        """
+        設定シートからシステム設定を読み取る（変更不可の技術的ルール）
+
+        Returns:
+            str: システム設定（G2セルの内容）
+                 設定シートが存在しない場合やエラー時は空文字列を返す
+        """
+        try:
+            rows = self.read_rows(sheet_name='設定', column_range='G2:G2')
+
+            if rows and len(rows) > 0 and len(rows[0]) > 0:
+                system_settings = rows[0][0]
+                print(f'✓ システム設定を読み込みました（{len(system_settings)}文字）')
+                return system_settings
+            else:
+                print('⚠️  設定シートにシステム設定が設定されていません')
+                return ''
+
+        except HttpError as err:
+            print(f'⚠️  システム設定の読み込みエラー: {err}')
+            return ''
+
     def get_unprocessed_rows(self):
         """
         未処理の行を取得（H列（jp_body）が空、または短い文字列のみの行）

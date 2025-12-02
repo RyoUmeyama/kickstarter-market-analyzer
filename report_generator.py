@@ -33,7 +33,7 @@ class ReportGenerator:
             self.api_available = False
             self.market_searcher = None
 
-    def generate_report(self, template, kickstarter_url, product_name='', common_prompt=''):
+    def generate_report(self, template, kickstarter_url, product_name='', common_prompt='', system_settings=''):
         """
         テンプレートに基づいてレポートを生成
 
@@ -55,7 +55,8 @@ class ReportGenerator:
                 }
             kickstarter_url (str): Kickstarter URL
             product_name (str, optional): 製品名/メーカー名
-            common_prompt (str, optional): 共通プロンプト（設定シートから読み込み）
+            common_prompt (str, optional): 共通プロンプト（設定シートA2から読み込み）
+            system_settings (str, optional): システム設定（設定シートG2から読み込み）
 
         Returns:
             dict: 生成されたレポート
@@ -105,7 +106,8 @@ class ReportGenerator:
                 template['en_body'],  # A2の本文テンプレート
                 kickstarter_url,
                 product_name,
-                common_prompt  # 共通プロンプトを追加
+                common_prompt,  # 共通プロンプト（設定シートA2）
+                system_settings  # システム設定（設定シートG2）
             )
             # 日本語本文は空文字列（Google SheetsのGOOGLETRANSLATE関数で翻訳）
             jp_body = ''
@@ -117,7 +119,7 @@ class ReportGenerator:
             'en_body': en_body
         }
 
-    def _generate_from_prompt(self, prompt, body_template, kickstarter_url, product_name, common_prompt=''):
+    def _generate_from_prompt(self, prompt, body_template, kickstarter_url, product_name, common_prompt='', system_settings=''):
         """
         日本語プロンプト + 本文テンプレートからOpenAI APIで完全な英語本文を生成
 
@@ -126,7 +128,8 @@ class ReportGenerator:
             body_template (str): 本文テンプレート（英語、A2）
             kickstarter_url (str): Kickstarter URL
             product_name (str): 製品名/メーカー名
-            common_prompt (str, optional): 共通プロンプト（設定シートから読み込み）
+            common_prompt (str, optional): 共通プロンプト（設定シートA2から読み込み）
+            system_settings (str, optional): システム設定（設定シートG2から読み込み）
 
         Returns:
             str: 生成された完全な英語本文（レポート込み）
@@ -146,151 +149,48 @@ class ReportGenerator:
                 search_results = self.market_searcher.search_similar_products(kickstarter_url, product_name)
                 market_research_data = self.market_searcher.format_for_prompt(search_results)
 
-            # プロンプト + 本文テンプレート + 市場調査データを組み合わせる
-            combined_prompt = f"""あなたの仕事は、以下の【メール本文テンプレート】をベースにして、【分析指示】に従ってレポート部分を生成し、完成したメール本文を出力することです。
-
-=== 最重要ルール（絶対に守ること） ===
-1. 【メール本文テンプレート】の文章構造・文面を必ず維持すること
-2. テンプレート内の {{{{レポート}}}} または {{{{レポ―ト}}}} の部分のみを、生成したレポートで置き換えること
-3. テンプレートの挨拶文、署名、その他の部分は一切変更しないこと
-4. テンプレートにない文章を勝手に追加しないこと
-
-=== 超重要：{{{{レポート}}}}の前後の内容を完全に保持 ===
-テンプレートには以下の構造があります：
-  [冒頭の挨拶・説明文] ← これを保持
-  {{{{レポート}}}} ← ここだけをレポートに置き換え
-  [Company & Performance References] ← これを**そのまま**保持（タイトルを変更しない！）
-  [宜しくお願い致します。] ← これを**そのまま**保持（英訳しない！）
-  [署名] ← これを保持
-
-※ 絶対に守ること：
-- 「Company & Performance References」を「Information Sources」に変更しない
-- 「宜しくお願い致します。」を「Best regards,」に翻訳しない
-- テンプレートの日本語部分はそのまま維持する
-
-【メール本文テンプレート（これをベースにする）】
+            # ユーザープロンプト（テンプレート + 分析指示 + 市場調査データ）
+            combined_prompt = f"""【メール本文テンプレート】
 {processed_body_template}
 
-【分析指示（レポート生成用）】
+【分析指示】
 {processed_prompt}
 
 {market_research_data}
 
-=== 出力ルール ===
-- テンプレートの構造を完全に保持し、{{{{レポート}}}} 部分のみを置き換える
-- {{{{レポート}}}}の前にある文章を全て出力する
-- {{{{レポート}}}}の後ろにある文章（Company & Performance Referencesなど）も全て出力する
-- 出力は英語のみ（ENGLISH ONLY）
-- Subject行は含めない - メール本文のみ出力
-- URLはプレーンテキストで記載（マークダウンリンク禁止）
-- 市場調査データに記載された実データのみ使用
-- 架空の製品名・URL・金額は絶対に生成しない
-
-=== レポートの質と量（最重要） ===
-- 各セクションは**最低5-8文**で詳細に記述すること（1-2文では絶対に不十分）
-- 単なる事実の羅列ではなく、分析・考察・戦略的提案を含めること
-- 数値データがある場合は、その意味・市場への示唆・ビジネスインパクトも説明すること
-- ビジネスパートナーへの提案として、説得力があり読み応えのある内容にすること
-- 類似製品がある場合は3-5件以上リストアップし、各製品の特徴・成功要因を分析すること
-- 類似製品がない場合は、市場機会として詳細に分析し、参入戦略を提案すること
-- 各フェーズの戦略は具体的な施策（SNS活用、広告運用、PR戦略など）を含めること
-
-=== フォーマット（必須） ===
-- レポートの各セクションは必ず番号付き: 「1. タイトル」「2. タイトル」「3. タイトル」
-- □や■などの記号は使用禁止
-- サブ項目には「・」を使用
-
-OUTPUT LANGUAGE: ENGLISH ONLY
+=== 出力形式 ===
+- 英語のみで出力（ENGLISH ONLY）
+- テンプレートの{{{{レポート}}}}部分のみをレポートで置き換える
+- テンプレートの他の部分は完全に保持する"""
 
             print(f"  🤖 Calling OpenAI API with template + prompt to generate complete English body...")
 
-            # システムプロンプトを構築（共通プロンプト + デフォルト指示）
-            default_system_prompt = """You are an expert business consultant and market analyst specializing in Japanese market entry strategies. Your task is to complete a professional email by filling in the report section with comprehensive, detailed analysis while preserving the original template structure.
+            # システムプロンプトを構築
+            # 最小限の技術的ルール（コード側で固定）
+            base_system_prompt = """You are a professional business consultant. Generate the report in ENGLISH ONLY.
 
-=== WRITING STYLE (CRITICAL) ===
-- Write comprehensive, in-depth analysis - NOT brief summaries
-- Each section MUST contain 5-8 substantive sentences minimum (1-2 sentences is UNACCEPTABLE)
-- Provide strategic analysis with specific insights, market context, and actionable recommendations
-- Include concrete examples, specific strategies (SNS marketing, influencer partnerships, PR campaigns, etc.)
-- When discussing similar products, analyze 3-5 products with their funding amounts, success factors, and comparison points
-- When data is available, explain what the numbers mean for the business opportunity and projected outcomes
-- When no data is found, present this as a unique market opportunity with detailed entry strategy
-- Use professional, persuasive English suitable for business partnership proposals
-- Make the report valuable and worth reading - the client should feel they received substantial insights
+CRITICAL RULES:
+1. Replace ONLY the {{レポート}} placeholder with the generated report
+2. Preserve ALL other template content exactly as written
+3. DO NOT translate Japanese text (e.g., "宜しくお願い致します。" stays as is)
+4. DO NOT rename sections (e.g., "Company & Performance References" stays as is)
+5. Use plain text URLs (no markdown links)"""
 
-=== CRITICAL: TEMPLATE PRESERVATION (MOST IMPORTANT) ===
+            # システム設定（スプレッドシートG2）を追加
+            if system_settings and system_settings.strip():
+                system_prompt = f"""{base_system_prompt}
 
-The template has this structure:
-  [Opening greeting/explanation] ← KEEP THIS EXACTLY
-  {{レポート}} ← REPLACE ONLY THIS with your report
-  [Company & Performance References] ← KEEP THIS TITLE EXACTLY (NOT "Information Sources")
-  [宜しくお願い致します。] ← KEEP THIS EXACTLY (DO NOT translate to "Best regards,")
-  [Signature] ← KEEP THIS EXACTLY
-
-RULES:
-1. The email template provided is the BASE STRUCTURE - you MUST preserve it exactly
-2. Only replace the {{レポート}} or {{レポ―ト}} placeholder with the generated report
-3. DO NOT modify, remove, or rearrange any other parts of the template
-4. Keep all greetings, signatures, and other template text unchanged
-5. DO NOT add new sections that don't exist in the template
-6. IMPORTANT: Content AFTER {{レポート}} MUST be preserved EXACTLY as written!
-7. DO NOT translate Japanese text in the template (e.g., "宜しくお願い致します。" stays as is)
-8. DO NOT rename section titles (e.g., "Company & Performance References" stays as is)
-
-=== DATA ACCURACY ===
-
-1. ONLY USE REAL DATA from the "市場調査結果" (Market Research Results) section
-   - Product names, URLs, funding amounts MUST come from provided data
-   - NEVER fabricate any product information
-
-2. FOR KICKSTARTER DATA (price, funding amount):
-   - If specific Kickstarter price/funding data is NOT provided in the market research, write: "Please refer to the Kickstarter page for current pricing and funding details"
-   - DO NOT make up Kickstarter prices or funding amounts
-
-3. WHEN NO SIMILAR PRODUCTS WERE FOUND:
-   - State clearly: "No similar products were found in Japanese crowdfunding platforms"
-   - Present this as a market opportunity
-   - DO NOT make up fictional products
-
-4. PREDICTIONS must be based on real data with citations
-
-5. FORBIDDEN:
-   - Fabricating product names, URLs, or funding amounts
-   - Making up Kickstarter-specific data (price, backers, funding)
-   - Adding content not in the template structure
-   - Removing any content from the template
-   - Translating or renaming template sections
-
-=== FORMATTING (MUST FOLLOW) ===
-
-1. MAIN SECTIONS must use numbered format: "1. Title", "2. Title", "3. Title"
-   - Example: "1. Product Features", "2. Kickstarter Price", "3. Market Analysis"
-   - NEVER use bullets (・, -, □, ■) for main section titles
-2. Sub-items within sections: use "・" for bullet points
-3. NO Markdown symbols: no **, ##, -, □, or []()
-4. URLs as plain text only
-5. Convert USD to JPY (e.g., $49 = approximately ¥7,300)
-
-=== OUTPUT ===
-
-- ENGLISH ONLY
-- Output the COMPLETE email including ALL sections from the template
-- Include content BEFORE {{レポート}}
-- Include the generated report (replacing {{レポート}})
-- Include content AFTER {{レポート}} (company achievements, etc.)
-- Include signature
-- No subject line"""
-
-            # 共通プロンプトがある場合は先頭に追加
-            if common_prompt and common_prompt.strip():
-                system_prompt = f"""{common_prompt}
-
----
-
-{default_system_prompt}"""
-                print(f"  📋 共通プロンプトを適用しました")
+{system_settings}"""
+                print(f"  📋 システム設定を適用しました")
             else:
-                system_prompt = default_system_prompt
+                system_prompt = base_system_prompt
+
+            # 共通プロンプト（スプレッドシートA2）を追加
+            if common_prompt and common_prompt.strip():
+                system_prompt = f"""{system_prompt}
+
+{common_prompt}"""
+                print(f"  📋 共通プロンプトを適用しました")
 
             # OpenAI APIを呼び出し（日本語プロンプト + 英語テンプレート → 完全な英語本文）
             response = self.client.chat.completions.create(
