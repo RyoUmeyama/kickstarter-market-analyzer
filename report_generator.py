@@ -201,8 +201,8 @@ CRITICAL RULES:
                 common_prompt,  # 共通プロンプト（設定シートA2）
                 system_settings  # システム設定（設定シートG2）
             )
-            # 日本語本文をAIで生成（名前は英語のまま保持）
-            jp_body = self._translate_body_to_japanese(en_body, product_name)
+            # 日本語本文は空文字列（Google SheetsのGOOGLETRANSLATE関数で翻訳、名前はSUBSTITUTEで英語に戻す）
+            jp_body = ''
 
         return {
             'jp_subject': jp_subject,
