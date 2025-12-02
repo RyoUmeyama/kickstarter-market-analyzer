@@ -403,13 +403,13 @@ Just output the market analysis report content that will be inserted into the em
         # 末尾の情報源/Sources/Referencesセクションを削除
         # パターン: "情報源" または "Sources" または "References" で始まる行から末尾のURL一覧を削除
         sources_patterns = [
-            r'\n\s*情報源\s*\n(https?://[^\s]+\n?)+$',
-            r'\n\s*Sources?\s*:?\s*\n(https?://[^\s]+\n?)+$',
-            r'\n\s*References?\s*:?\s*\n(https?://[^\s]+\n?)+$',
-            r'\n\s*Information Sources?\s*:?\s*\n(https?://[^\s]+\n?)+$',
+            r'\n+\s*情報源\s*:?\s*\n+(https?://[^\s]+\s*\n*)+',
+            r'\n+\s*Sources?\s*:?\s*\n+(https?://[^\s]+\s*\n*)+',
+            r'\n+\s*References?\s*:?\s*\n+(https?://[^\s]+\s*\n*)+',
+            r'\n+\s*Information Sources?\s*:?\s*\n+(https?://[^\s]+\s*\n*)+',
         ]
         for pattern in sources_patterns:
-            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+            text = re.sub(pattern, '\n', text, flags=re.IGNORECASE)
 
         # 「URL：」や「URL:」プレフィックスを括弧形式に変換
         # 例: 「製品名」、URL：https://... → 「製品名」(https://...)
