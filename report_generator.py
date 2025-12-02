@@ -238,8 +238,9 @@ class ReportGenerator:
 - Generate ONLY the report content (the part that replaces the placeholder)
 - Do NOT include email greetings, signatures, or other template parts
 - Use plain text URLs (no markdown links)
-- Include URLs INLINE with product mentions
-  Example: "Product ABC" raised 1,234,567 yen (https://www.makuake.com/project/xxx)
+- Include URLs INLINE with product names using parentheses (do NOT use "URL:" prefix)
+  Correct: "Product ABC" (https://www.makuake.com/project/xxx) raised 1,234,567 yen
+  Wrong: "Product ABC", URL: https://...
 - Do NOT create a separate "Sources" or "Information Sources" section at the end"""
 
             print(f"  🤖 Calling OpenAI API with translated prompts...")
