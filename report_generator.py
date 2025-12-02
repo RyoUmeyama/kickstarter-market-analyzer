@@ -234,29 +234,36 @@ class ReportGenerator:
 {translated_market_data}
 
 === OUTPUT FORMAT ===
-- Output in ENGLISH ONLY
+- Output in ENGLISH ONLY - absolutely NO Japanese characters allowed (no hiragana, katakana, or kanji)
 - Generate ONLY the report content (the part that replaces the placeholder)
 - Do NOT include email greetings, signatures, or other template parts
-- Use plain text URLs (no markdown links)
+- Use PLAIN TEXT only - NO markdown formatting (no *, **, #, -, bullet points, etc.)
+- Use plain text URLs (no markdown links like [text](url))
 - Include URLs INLINE with product names using parentheses (do NOT use "URL:" prefix)
   Correct: "Product ABC" (https://www.makuake.com/project/xxx) raised 1,234,567 yen
   Wrong: "Product ABC", URL: https://...
 - NEVER create a "Sources", "Information Sources", "情報源", or "References" section at the end
 - URLs are already inline, so listing them again at the end is redundant and prohibited
-- Keep all company names and product names in their original English form (do NOT translate proper nouns)"""
+- Keep all company names and product names in their original English form"""
 
             print(f"  🤖 Calling OpenAI API with translated prompts...")
 
             # システムプロンプトを構築（英語）
             base_system_prompt = """You are a professional business consultant. Generate the market analysis report in ENGLISH ONLY.
 
-IMPORTANT: Generate ONLY the report content itself. Do NOT include:
+CRITICAL RULES:
+1. Write in ENGLISH ONLY - absolutely NO Japanese characters (no hiragana, katakana, kanji)
+2. Use PLAIN TEXT only - NO markdown formatting (no asterisks *, no headers #, no bullet points -)
+3. Generate ONLY the report content itself
+
+Do NOT include:
 - Email greetings (Dear..., etc.)
 - Signatures
 - Company references sections
 - Any template text
+- Any Japanese text
 
-Just output the market analysis report content that will be inserted into the email template."""
+Just output the market analysis report content in plain English text."""
 
             # 英訳されたシステム設定を追加
             if translated_system_settings:
@@ -365,6 +372,7 @@ Just output the market analysis report content that will be inserted into the em
         """
         生成された本文をクリーンアップ
         - 件名行（Subject:）を削除
+        - マークダウン記法を削除（*, **, #, - など）
         - マークダウンリンク [text](url) をプレーンテキスト url に変換
         - 末尾の情報源/Sources/Referencesセクションを削除
         - URL: プレフィックスを括弧形式に変換
@@ -400,6 +408,20 @@ Just output the market analysis report content that will be inserted into the em
         # マークダウンリンク [text](url) を url に変換
         # 例: [Life Support](https://lifeupjp.com) → https://lifeupjp.com
         text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'\2', text)
+
+        # マークダウン記法を削除
+        # **太字** → 太字
+        text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+        # *斜体* → 斜体（ただしURL内の*は除外するため、単語境界を使用）
+        text = re.sub(r'(?<!\w)\*([^*\n]+)\*(?!\w)', r'\1', text)
+        # __太字__ → 太字
+        text = re.sub(r'__([^_]+)__', r'\1', text)
+        # _斜体_ → 斜体
+        text = re.sub(r'(?<!\w)_([^_\n]+)_(?!\w)', r'\1', text)
+        # # ヘッダー → ヘッダー（行頭の#を削除）
+        text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+        # 行頭の - や * のリストマーカーを削除（ただし本文に含まれる場合は残す）
+        text = re.sub(r'^[\-\*]\s+', '', text, flags=re.MULTILINE)
 
         # 末尾の情報源/Sources/Referencesセクションを削除
         # パターン: "情報源" または "Sources" または "References" で始まる行から末尾のURL一覧を削除
