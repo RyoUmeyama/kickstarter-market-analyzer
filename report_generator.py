@@ -448,14 +448,12 @@ Just output the market analysis report content in plain English text."""
         # 例: 「製品名」、URL：https://... → 「製品名」(https://...)
         text = re.sub(r'[、,]\s*URL[：:]\s*(https?://[^\s]+)', r' (\1)', text)
 
-        # URL括弧の前後にスペースを追加（日本語テキストがくっつかないように）
-        # 例: 製品名(https://example.com)は → 製品名 (https://example.com) は
-        # 半角括弧に対応
-        text = re.sub(r'([^\s\(])(\(https?://)', r'\1 \2', text)  # 前にスペース
-        text = re.sub(r'(\(https?://[^\s\)]+\))([^\s\)\n])', r'\1 \2', text)  # 後にスペース
-        # 全角括弧に対応
-        text = re.sub(r'([^\s（])（(https?://)', r'\1 （\2', text)  # 前にスペース
-        text = re.sub(r'（(https?://[^\s）]+)）([^\s）\n])', r'（\1） \2', text)  # 後にスペース
+        # URLの前後に半角スペースを追加（日本語テキストがくっつかないように）
+        # 例: 製品名https://example.comは → 製品名 https://example.com は
+        # URLの前にスペース（スペース・改行・括弧の後でない場合）
+        text = re.sub(r'([^\s\n\(（])(https?://)', r'\1 \2', text)
+        # URLの後にスペース（スペース・改行・括弧の前でない場合）
+        text = re.sub(r'(https?://[^\s\)）\n]+)([^\s\)）\n])', r'\1 \2', text)
 
         return text.strip()
 
