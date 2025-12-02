@@ -33,12 +33,13 @@ class ReportGenerator:
             self.api_available = False
             self.market_searcher = None
 
-    def _translate_to_english(self, text):
+    def _translate_to_english(self, text, preserve_names=True):
         """
         日本語テキストを英語に翻訳（API送信用）
 
         Args:
             text (str): 翻訳するテキスト
+            preserve_names (bool): 会社名・製品名を英語のまま保持するか
 
         Returns:
             str: 英訳されたテキスト
@@ -50,12 +51,21 @@ class ReportGenerator:
             return text
 
         try:
+            system_content = """You are a professional translator. Translate the following Japanese text to English.
+
+RULES:
+1. Keep the same formatting (line breaks, sections, etc.)
+2. Keep all company names and product names in their original form (do NOT translate proper nouns)
+3. Do NOT use any markdown formatting (no *, **, #, -, etc.)
+4. Output plain text only
+5. Only output the translation, nothing else."""
+
             response = self.client.chat.completions.create(
                 model='gpt-4o-mini',  # 翻訳は軽量モデルで十分
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a professional translator. Translate the following Japanese text to English. Keep the same formatting (bullet points, sections, etc.). Only output the translation, nothing else."
+                        "content": system_content
                     },
                     {
                         "role": "user",
@@ -65,7 +75,10 @@ class ReportGenerator:
                 max_tokens=4000,
                 temperature=0.3
             )
-            return response.choices[0].message.content.strip()
+            translated = response.choices[0].message.content.strip()
+            # マークダウン記法を削除（翻訳結果にも適用）
+            translated = self._clean_generated_body(translated)
+            return translated
         except Exception as e:
             print(f"  ⚠️ Translation failed, using original text: {e}")
             return text
@@ -192,6 +205,15 @@ class ReportGenerator:
                 template_before = processed_body_template
                 template_after = ''
                 print(f"  ⚠️ No {{{{レポート}}}} placeholder found in template")
+
+            # テンプレート部分を英語に翻訳（日本語が含まれている場合）
+            print(f"  🌐 Translating template parts to English...")
+            if template_before and template_before.strip():
+                template_before = self._translate_to_english(template_before)
+                print(f"    ✓ Template before placeholder translated")
+            if template_after and template_after.strip():
+                template_after = self._translate_to_english(template_after)
+                print(f"    ✓ Template after placeholder translated")
 
             # 市場調査：類似製品を検索
             market_research_data = ""
