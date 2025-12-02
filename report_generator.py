@@ -448,6 +448,12 @@ Just output the market analysis report content in plain English text."""
         # 例: 「製品名」、URL：https://... → 「製品名」(https://...)
         text = re.sub(r'[、,]\s*URL[：:]\s*(https?://[^\s]+)', r' (\1)', text)
 
+        # URL括弧の後にスペースを追加（日本語テキストがくっつかないように）
+        # 例: (https://example.com)は → (https://example.com) は
+        # 半角括弧と全角括弧の両方に対応
+        text = re.sub(r'(\(https?://[^\s\)]+\))([^\s\)\n])', r'\1 \2', text)
+        text = re.sub(r'（(https?://[^\s）]+)）([^\s）\n])', r'（\1） \2', text)
+
         return text.strip()
 
     def _replace_placeholders(self, text, kickstarter_url, product_name):
