@@ -195,6 +195,7 @@ class GoogleSheetsClient:
         プレーンテキストをHTML形式に変換
         - 改行を<br>に変換
         - 特殊文字をエスケープ（&, <, >）
+        - URLを<a>タグでリンク化
 
         Args:
             text (str): プレーンテキスト
@@ -202,6 +203,8 @@ class GoogleSheetsClient:
         Returns:
             str: HTML形式のテキスト
         """
+        import re
+
         if not text:
             return ''
 
@@ -209,6 +212,11 @@ class GoogleSheetsClient:
         text = text.replace('&', '&amp;')
         text = text.replace('<', '&lt;')
         text = text.replace('>', '&gt;')
+
+        # URLを<a>タグでリンク化
+        # URLパターン: http:// または https:// で始まり、空白や改行まで
+        url_pattern = r'(https?://[^\s<>\"\'\)）]+)'
+        text = re.sub(url_pattern, r'<a href="\1">\1</a>', text)
 
         # 改行を<br>に変換
         text = text.replace('\n', '<br>')
