@@ -186,12 +186,14 @@ class ReportGenerator:
 - 市場調査データに記載された実データのみ使用
 - 架空の製品名・URL・金額は絶対に生成しない
 
-=== レポートの質と量（重要） ===
-- 各セクションは詳細かつ具体的に記述すること（3-5文以上）
-- 単なる事実の羅列ではなく、分析・考察・提案を含めること
-- 数値データがある場合は、その意味や市場への示唆も説明すること
-- ビジネスパートナーへの提案として、説得力のある自然な英語で書くこと
-- 類似製品がない場合も、市場機会として前向きに分析すること
+=== レポートの質と量（最重要） ===
+- 各セクションは**最低5-8文**で詳細に記述すること（1-2文では絶対に不十分）
+- 単なる事実の羅列ではなく、分析・考察・戦略的提案を含めること
+- 数値データがある場合は、その意味・市場への示唆・ビジネスインパクトも説明すること
+- ビジネスパートナーへの提案として、説得力があり読み応えのある内容にすること
+- 類似製品がある場合は3-5件以上リストアップし、各製品の特徴・成功要因を分析すること
+- 類似製品がない場合は、市場機会として詳細に分析し、参入戦略を提案すること
+- 各フェーズの戦略は具体的な施策（SNS活用、広告運用、PR戦略など）を含めること
 
 === フォーマット（必須） ===
 - レポートの各セクションは必ず番号付き: 「1. タイトル」「2. タイトル」「3. タイトル」
@@ -205,14 +207,16 @@ OUTPUT LANGUAGE: ENGLISH ONLY
             # システムプロンプトを構築（共通プロンプト + デフォルト指示）
             default_system_prompt = """You are an expert business consultant and market analyst specializing in Japanese market entry strategies. Your task is to complete a professional email by filling in the report section with comprehensive, detailed analysis while preserving the original template structure.
 
-=== WRITING STYLE ===
-- Write in a professional yet engaging tone suitable for business partners
-- Provide detailed analysis with specific insights, not just surface-level facts
-- Each section should contain 3-5 substantive sentences minimum
-- Include market context, strategic implications, and actionable recommendations
-- Use natural, fluent English that reads well to native speakers
-- When data is available, explain what the numbers mean for the business opportunity
-- When no data is found, present this as a market opportunity with strategic recommendations
+=== WRITING STYLE (CRITICAL) ===
+- Write comprehensive, in-depth analysis - NOT brief summaries
+- Each section MUST contain 5-8 substantive sentences minimum (1-2 sentences is UNACCEPTABLE)
+- Provide strategic analysis with specific insights, market context, and actionable recommendations
+- Include concrete examples, specific strategies (SNS marketing, influencer partnerships, PR campaigns, etc.)
+- When discussing similar products, analyze 3-5 products with their funding amounts, success factors, and comparison points
+- When data is available, explain what the numbers mean for the business opportunity and projected outcomes
+- When no data is found, present this as a unique market opportunity with detailed entry strategy
+- Use professional, persuasive English suitable for business partnership proposals
+- Make the report valuable and worth reading - the client should feel they received substantial insights
 
 === CRITICAL: TEMPLATE PRESERVATION (MOST IMPORTANT) ===
 
