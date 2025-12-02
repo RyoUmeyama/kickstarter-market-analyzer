@@ -236,40 +236,53 @@ RULES:
                 translated_common_prompt = ""
 
             # ユーザープロンプト（レポート部分のみ生成を依頼）
-            combined_prompt = f"""[ANALYSIS INSTRUCTIONS]
+            combined_prompt = f"""[PRODUCT ANALYSIS REQUEST]
 {translated_prompt}
 
+[JAPANESE MARKET RESEARCH DATA - USE THIS REAL DATA]
 {translated_market_data}
 
-=== OUTPUT FORMAT ===
-- Output in ENGLISH ONLY - absolutely NO Japanese characters allowed
-- Generate ONLY the report content (the part that replaces the placeholder)
-- Do NOT include email greetings, signatures, or other template parts
-- Use PLAIN TEXT only - NO markdown formatting (no *, **, #, -, bullet points, etc.)
-- Keep all URLs exactly as they are - do NOT replace them with [URL] or any placeholder
-- Include URLs INLINE with product names using square brackets, like: Product Name [URL]
-- NEVER create a "Sources", "Information Sources", or "References" section at the end
-- Keep all company names and product names in their original English form"""
+IMPORTANT INSTRUCTIONS:
+1. Analyze THIS SPECIFIC product based on its features, target audience, and market positioning
+2. Use the ACTUAL market research data above - cite real product names, URLs, and funding amounts
+3. Provide CONCRETE strategies tailored to this product's characteristics
+4. Calculate realistic sales projections based on similar products' performance
+5. Explain WHY this product would succeed in Japan (specific reasons, not generic)
+6. Recommend specific launch timing, pricing strategy, and marketing channels
+
+OUTPUT REQUIREMENTS:
+- Write in ENGLISH ONLY (no Japanese characters)
+- Use PLAIN TEXT only (no markdown: no *, #, -, etc.)
+- Keep all URLs exactly as provided - never modify them
+- Include product URLs inline with their names
+- Focus on actionable insights, not general market overviews"""
 
             print(f"  🤖 Calling OpenAI API with translated prompts...")
 
             # システムプロンプトを構築
-            base_system_prompt = """You are a professional business consultant. Generate the market analysis report in ENGLISH ONLY.
+            base_system_prompt = """You are a senior marketing consultant with 15+ years of experience helping international products succeed in the Japanese market. You specialize in crowdfunding launches and e-commerce expansion in Japan.
 
-CRITICAL RULES:
-1. Write in ENGLISH ONLY - absolutely NO Japanese characters (no hiragana, katakana, kanji)
-2. Use PLAIN TEXT only - NO markdown formatting (no asterisks *, no headers #, no bullet points -)
+YOUR ROLE:
+- Analyze the specific Kickstarter product and identify its unique selling points for Japanese consumers
+- Provide concrete, actionable strategies based on REAL market data from similar products
+- Focus on HOW to succeed in Japan, not generic advice
+- Use actual funding amounts and success stories from Japanese crowdfunding platforms (Makuake, etc.)
+- Write persuasively to convince the creator that expanding to Japan is a valuable opportunity
+
+WRITING STYLE:
+- Be specific and data-driven (use actual numbers from market research)
+- Focus on actionable recommendations, not general information
+- Highlight the product's competitive advantages in the Japanese market
+- Show concrete success potential with realistic projections
+- Write as a professional proposal, not a generic report
+
+CRITICAL FORMAT RULES:
+1. Write in ENGLISH ONLY - absolutely NO Japanese characters
+2. Use PLAIN TEXT only - NO markdown formatting (no *, **, #, -, etc.)
 3. Generate ONLY the report content itself
-4. Keep all URLs exactly as they are - do NOT replace them with [URL] or any placeholder
+4. Keep all URLs exactly as they are - never modify or replace them
 
-Do NOT include:
-- Email greetings (Dear..., etc.)
-- Signatures
-- Company references sections
-- Any template text
-- Any Japanese text
-
-Just output the market analysis report content in plain English text."""
+Do NOT include email greetings, signatures, or template text."""
 
             # システム設定（G2）と共通プロンプト（A2）を追加
             system_parts = [base_system_prompt]
@@ -444,16 +457,9 @@ Just output the market analysis report content in plain English text."""
         for pattern in sources_patterns:
             text = re.sub(pattern, '\n', text, flags=re.IGNORECASE)
 
-        # 「URL：」や「URL:」プレフィックスを角括弧形式に変換
-        # 例: 「製品名」、URL：https://... → 「製品名」 [https://...]
-        text = re.sub(r'[、,]\s*URL[：:]\s*(https?://[^\s]+)', r' [\1]', text)
-
-        # URLの前後に半角スペースを追加（日本語テキストがくっつかないように）
-        # 例: 製品名[https://example.com]は → 製品名 [https://example.com] は
-        # URLまたは角括弧付きURLの前にスペース
-        text = re.sub(r'([^\s\n\[\(（])(\[?https?://)', r'\1 \2', text)
-        # URLまたは角括弧付きURLの後にスペース
-        text = re.sub(r'(https?://[^\s\]\)）\n]+\]?)([^\s\]\)）\n])', r'\1 \2', text)
+        # 「URL：」や「URL:」プレフィックスを削除してURLのみ残す
+        # 例: 「製品名」、URL：https://... → 「製品名」 https://...
+        text = re.sub(r'[、,]\s*URL[：:]\s*(https?://)', r' \1', text)
 
         return text.strip()
 
