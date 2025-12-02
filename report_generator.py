@@ -180,6 +180,19 @@ class ReportGenerator:
             processed_prompt = self._replace_placeholders(prompt, kickstarter_url, product_name)
             processed_body_template = self._replace_placeholders(body_template, kickstarter_url, product_name)
 
+            # テンプレートを{{レポート}}で分割（前半と後半を保持）
+            report_placeholder = '{{レポート}}'
+            if report_placeholder in processed_body_template:
+                template_parts = processed_body_template.split(report_placeholder, 1)
+                template_before = template_parts[0]
+                template_after = template_parts[1] if len(template_parts) > 1 else ''
+                print(f"  📝 Template split: {len(template_before)} chars before, {len(template_after)} chars after placeholder")
+            else:
+                # プレースホルダーがない場合は全体を前半として扱う
+                template_before = processed_body_template
+                template_after = ''
+                print(f"  ⚠️ No {{{{レポート}}}} placeholder found in template")
+
             # 市場調査：類似製品を検索
             market_research_data = ""
             if self.market_searcher:
@@ -214,34 +227,33 @@ class ReportGenerator:
             else:
                 translated_common_prompt = ""
 
-            # ユーザープロンプト（テンプレート + 英訳された分析指示 + 英訳された市場調査データ）
-            combined_prompt = f"""[EMAIL TEMPLATE - Preserve this structure exactly]
-{processed_body_template}
-
-[ANALYSIS INSTRUCTIONS]
+            # ユーザープロンプト（レポート部分のみ生成を依頼）
+            combined_prompt = f"""[ANALYSIS INSTRUCTIONS]
 {translated_prompt}
 
 {translated_market_data}
 
 === OUTPUT FORMAT ===
 - Output in ENGLISH ONLY
-- Replace ONLY the {{{{レポート}}}} placeholder with the generated report
-- Preserve ALL other template content exactly as written"""
+- Generate ONLY the report content (the part that replaces the placeholder)
+- Do NOT include email greetings, signatures, or other template parts
+- Use plain text URLs (no markdown links)
+- Include URLs INLINE with product mentions
+  Example: "Product ABC" raised 1,234,567 yen (https://www.makuake.com/project/xxx)
+- Do NOT create a separate "Sources" or "Information Sources" section at the end"""
 
             print(f"  🤖 Calling OpenAI API with translated prompts...")
 
             # システムプロンプトを構築（英語）
-            base_system_prompt = """You are a professional business consultant. Generate the report in ENGLISH ONLY.
+            base_system_prompt = """You are a professional business consultant. Generate the market analysis report in ENGLISH ONLY.
 
-CRITICAL RULES:
-1. Replace ONLY the {{レポート}} placeholder with the generated report
-2. Preserve ALL other template content exactly as written
-3. DO NOT translate Japanese text in the template (e.g., "宜しくお願い致します。" stays as is)
-4. DO NOT rename sections (e.g., "Company & Performance References" stays as is)
-5. Use plain text URLs (no markdown links)
-6. Include URLs INLINE with product mentions, not in a separate section at the end
-   Example: "Product ABC" raised 1,234,567 yen (https://www.makuake.com/project/xxx)
-7. Do NOT create a separate "Sources" or "Information Sources" section at the end"""
+IMPORTANT: Generate ONLY the report content itself. Do NOT include:
+- Email greetings (Dear..., etc.)
+- Signatures
+- Company references sections
+- Any template text
+
+Just output the market analysis report content that will be inserted into the email template."""
 
             # 英訳されたシステム設定を追加
             if translated_system_settings:
@@ -257,7 +269,7 @@ CRITICAL RULES:
 
 {translated_common_prompt}"""
 
-            # OpenAI APIを呼び出し（日本語プロンプト + 英語テンプレート → 完全な英語本文）
+            # OpenAI APIを呼び出し（レポート部分のみ生成）
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -274,13 +286,17 @@ CRITICAL RULES:
                 temperature=0.7
             )
 
-            generated_body = response.choices[0].message.content.strip()
-            print(f"  ✓ Complete English body generated via OpenAI API")
+            generated_report = response.choices[0].message.content.strip()
+            print(f"  ✓ Report content generated via OpenAI API ({len(generated_report)} chars)")
 
             # 後処理: 件名行を削除、マークダウンリンクをプレーンテキストに変換
-            generated_body = self._clean_generated_body(generated_body)
+            generated_report = self._clean_generated_body(generated_report)
 
-            return generated_body
+            # テンプレートの前半 + 生成されたレポート + テンプレートの後半を結合
+            final_body = template_before + generated_report + template_after
+            print(f"  ✓ Final body assembled ({len(final_body)} chars)")
+
+            return final_body
 
         except Exception as e:
             print(f"  ❌ Error calling OpenAI API: {e}")
