@@ -70,61 +70,6 @@ class ReportGenerator:
             print(f"  ⚠️ Translation failed, using original text: {e}")
             return text
 
-    def _translate_body_to_japanese(self, english_body, product_name=''):
-        """
-        英語本文を日本語に翻訳（会社名・製品名は英語のまま保持）
-
-        Args:
-            english_body (str): 英語本文
-            product_name (str): 製品名/メーカー名（英語のまま保持）
-
-        Returns:
-            str: 日本語本文（名前は英語のまま）
-        """
-        if not english_body or not english_body.strip():
-            return english_body
-
-        if not self.api_available:
-            return ''  # APIがない場合は空文字（GOOGLETRANSLATEにフォールバック）
-
-        try:
-            print(f"  🇯🇵 Translating body to Japanese (keeping names in English)...")
-
-            response = self.client.chat.completions.create(
-                model='gpt-4o-mini',
-                messages=[
-                    {
-                        "role": "system",
-                        "content": """You are a professional English to Japanese translator for business emails.
-
-CRITICAL RULES:
-1. Translate the text to natural, polite Japanese (敬語)
-2. Keep ALL company names, product names, and proper nouns in English (do NOT translate them)
-   - Example: "Dear Tenkara Rod Co.," → "Tenkara Rod Co. 様"
-   - Example: "AKASO" stays as "AKASO"
-   - Example: "Life Support Co., Ltd." stays as "Life Support Co., Ltd."
-3. Keep all URLs exactly as they are
-4. Keep the same formatting (line breaks, sections, bullet points)
-5. Output ONLY the Japanese translation, nothing else"""
-                    },
-                    {
-                        "role": "user",
-                        "content": english_body
-                    }
-                ],
-                max_tokens=16000,
-                temperature=0.3
-            )
-
-            jp_body = response.choices[0].message.content.strip()
-            print(f"  ✓ Japanese body generated ({len(jp_body)} chars)")
-
-            return jp_body
-
-        except Exception as e:
-            print(f"  ⚠️ Japanese translation failed: {e}")
-            return ''  # 失敗時は空文字（GOOGLETRANSLATEにフォールバック）
-
     def generate_report(self, template, kickstarter_url, product_name='', common_prompt='', system_settings=''):
         """
         テンプレートに基づいてレポートを生成

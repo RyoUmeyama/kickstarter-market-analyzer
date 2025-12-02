@@ -37,8 +37,18 @@ Kickstarter製品の日本市場参入提案メールを自動生成するシス
 
 7. **自動翻訳対応**
    - Google SheetsのGOOGLETRANSLATE関数により英語→日本語を自動翻訳
+   - **会社名・製品名は英語のまま保持**（SUBSTITUTE関数で自動処理）
 
-8. **メールマージ対応**
+8. **テンプレート構造の保持**
+   - `{{レポート}}`プレースホルダーでテンプレートを分割
+   - 署名欄や参照情報など、プレースホルダー後の内容も確実に保持
+   - AI生成レポートがテンプレート構造を破壊しない
+
+9. **URL表記の最適化**
+   - 製品名の直後に括弧でURLを挿入（例: 「製品名」(https://...)）
+   - 末尾の「情報源」セクションは自動削除（URLは文中にインライン）
+
+10. **メールマージ対応**
    - Google SheetsをCSV出力してThunderbirdのメールマージで一括送信可能
    - HTML形式メール対応
 
@@ -144,10 +154,28 @@ CSV出力 → Thunderbirdメールマージ → 送信
 - `{{name}}`: メーカー名に置換
 - `{{レポート}}`: OpenAI生成レポートに置換
 
+### kickstarterシートの列構成
+
+| 列 | 内容 |
+|----|------|
+| A | NO（連番） |
+| B | product_url（Kickstarter URL） |
+| C | template（テンプレート名） |
+| D | name（メーカー名） |
+| E | to_email（送信先メールアドレス） |
+| F | jp_subject（日本語件名） |
+| G | en_subject（英語件名） |
+| H | jp_body（日本語本文 - GOOGLETRANSLATE関数） |
+| I | en_body（英語本文） |
+| J | jp_body_html（日本語本文HTML版） |
+| K | en_body_html（英語本文HTML版） |
+
 ## プロジェクト構成
 
 ```
 kickstarter-market-analyzer/
+├── .claude/
+│   └── CLAUDE.md                   # Claude Code用設定（Git push先など）
 ├── .github/workflows/
 │   ├── extract_and_generate.yml    # 管理表から抽出してメール生成
 │   └── sync_workflow_options.yml   # ステータス選択肢を同期
@@ -172,7 +200,7 @@ kickstarter-market-analyzer/
 
 - **データの正確性**: 市場調査結果の実データのみ使用
 - **予測の書き方**: 実データを根拠として明記
-- **情報源の明記**: 全データにURLを記載
+- **URL表記**: 製品名の直後に括弧でURLを記載（末尾にまとめない）
 
 ### プロンプトの処理フロー
 
@@ -204,3 +232,31 @@ Google Sheets（GOOGLETRANSLATE関数で日本語に翻訳）
 ### コスト目安
 - OpenAI API: 1回の処理で約3-5円（翻訳含む）
 - 月間100件処理: 約300-500円
+
+## 開発者向け情報
+
+### Gitリポジトリ構成
+
+このプロジェクトは2つのリポジトリにpushする必要があります：
+
+| リモート | リポジトリ | 用途 |
+|---------|-----------|------|
+| origin | RyoUmeyama/kickstarter-market-analyzer | バックアップ |
+| client | koki4117/kickstarter-market-analyzer | **本番（GitHub Actions実行）** |
+
+```bash
+# 両方にpush（必須）
+git push origin main && git push client main
+```
+
+**重要**: `client`（koki4117）にpushしないとワークフローに反映されません。
+
+### 日本語翻訳時の名前保持
+
+H列（日本語本文）では以下の数式を使用して、GOOGLETRANSLATE翻訳時に会社名を英語のまま保持します：
+
+```
+=SUBSTITUTE(GOOGLETRANSLATE(I2, "en", "ja"), GOOGLETRANSLATE(D2, "en", "ja"), D2&" 様")
+```
+
+これにより「Tenkara Rod Co.」が「テンカラロッド株式会社」に翻訳されることを防ぎます。
