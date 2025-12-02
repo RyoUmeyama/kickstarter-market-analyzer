@@ -53,15 +53,14 @@ class ReportGenerator:
             system_content = """You are a professional translator. Translate the following Japanese text to English.
 
 RULES:
-1. Keep the same formatting (line breaks, blank lines between sections)
+1. Keep the same paragraph structure - do not add extra line breaks
 2. Keep all company names and product names in their original form (do NOT translate proper nouns)
 3. Preserve all numbering - circled numbers (①②③) can be converted to regular numbers (1. 2. 3.) but NEVER remove them
-4. Keep all URLs exactly as they are - do NOT modify, shorten, or wrap them
-5. NEVER put URLs inside parentheses () or brackets []
-6. URLs should be on their own line, prefixed with "URL: "
-7. Do NOT use any markdown formatting (no *, **, #, -, etc.)
-8. Output plain text only
-9. Only output the translation, nothing else."""
+4. Keep all URLs exactly as they are - do NOT modify or shorten them
+5. Write URLs naturally in sentences, not on separate lines
+6. Do NOT use any markdown formatting (no *, **, #, -, etc.)
+7. Output plain text only
+8. Only output the translation, nothing else."""
 
             response = self.client.chat.completions.create(
                 model='gpt-4o-mini',
@@ -255,14 +254,11 @@ IMPORTANT INSTRUCTIONS:
 OUTPUT FORMAT RULES:
 1. Write in ENGLISH ONLY (no Japanese characters)
 2. Use PLAIN TEXT only (no markdown: no *, #, -, bullet points, etc.)
-3. Use proper paragraph breaks with blank lines between sections
-4. For URLs, use this format (URL on its own line):
-   Product Name
-   URL: https://example.com
-   Funding: X yen
-5. NEVER put URLs inside parentheses () or brackets []
-6. Each section should have a clear title followed by a blank line
-7. Keep paragraphs concise and well-structured"""
+3. Write in natural flowing paragraphs - do NOT put each sentence on a separate line
+4. Only use blank lines between major sections (numbered sections like 1. 2. 3.)
+5. Within each section, write continuous paragraphs without extra line breaks
+6. For product references, write naturally: "Product Name achieved X yen in funding. See: URL"
+7. Do NOT output "URL:" without an actual URL after it"""
 
             print(f"  🤖 Calling OpenAI API with translated prompts...")
 
@@ -286,16 +282,11 @@ WRITING STYLE:
 CRITICAL FORMAT RULES:
 1. Write in ENGLISH ONLY - absolutely NO Japanese characters
 2. Use PLAIN TEXT only - NO markdown (no *, **, #, -, bullet points)
-3. Use clear paragraph breaks (blank lines) between sections
-4. For product references with URLs, use this format:
-
-   Product Name
-   URL: https://...
-   Funding: X yen
-
-5. NEVER put URLs inside parentheses () or brackets []
-6. URLs must be on their own line, prefixed with "URL: "
-7. Keep each section title on its own line, followed by a blank line
+3. Write in natural flowing paragraphs - each section should have continuous text
+4. Only insert blank lines between numbered sections (1. 2. 3.)
+5. Do NOT put each sentence on a separate line - keep paragraphs together
+6. For URLs, write naturally in sentences: "Product Name achieved X yen. See: https://..."
+7. NEVER output "URL:" by itself without an actual URL
 
 Do NOT include email greetings, signatures, or template text."""
 
@@ -472,14 +463,18 @@ Do NOT include email greetings, signatures, or template text."""
         for pattern in sources_patterns:
             text = re.sub(pattern, '\n', text, flags=re.IGNORECASE)
 
-        # 括弧で囲まれたURLを修正（URLを独立した行に）
-        # 半角括弧: (https://...) → \nURL: https://...
-        text = re.sub(r'\s*\(\s*(https?://[^\s\)]+)\s*\)', r'\nURL: \1', text)
-        # 全角括弧: （https://...） → \nURL: https://...
-        text = re.sub(r'\s*（\s*(https?://[^\s）]+)\s*）', r'\nURL: \1', text)
+        # 括弧で囲まれたURLを修正（括弧を削除してスペースで区切る）
+        # 半角括弧: (https://...) → スペース + URL
+        text = re.sub(r'\s*\(\s*(https?://[^\s\)]+)\s*\)', r' \1', text)
+        # 全角括弧: （https://...） → スペース + URL
+        text = re.sub(r'\s*（\s*(https?://[^\s）]+)\s*）', r' \1', text)
 
-        # 「URL：」や「URL:」の前の余分な文字を整理
-        text = re.sub(r'[、,]\s*URL[：:]\s*(https?://)', r'\nURL: \1', text)
+        # 「URL：」や「URL:」で始まるが後にURLがない行を削除
+        text = re.sub(r'\n\s*URL[：:]?\s*\n', '\n', text)
+        text = re.sub(r'\n\s*URL[：:]?\s*$', '', text)
+
+        # 「URL：」や「URL:」プレフィックスを整理（URLがある場合）
+        text = re.sub(r'URL[：:]\s*(https?://)', r'\1', text)
 
         # 連続する空行を1つに整理
         text = re.sub(r'\n{3,}', '\n\n', text)
