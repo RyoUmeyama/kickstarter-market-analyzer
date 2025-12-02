@@ -256,7 +256,8 @@ git push origin main && git push client main
 H列（日本語本文）では以下の数式を使用して、GOOGLETRANSLATE翻訳時に会社名を英語のまま保持します：
 
 ```
-=SUBSTITUTE(GOOGLETRANSLATE(I2, "en", "ja"), GOOGLETRANSLATE(D2, "en", "ja"), D2&" 様")
+=SUBSTITUTE(GOOGLETRANSLATE(I2, "en", "ja"), GOOGLETRANSLATE(D2, "en", "ja"), D2)
 ```
 
 これにより「Tenkara Rod Co.」が「テンカラロッド株式会社」に翻訳されることを防ぎます。
+（敬称「様」はGOOGLETRANSLATEで自動付与されるため、数式では追加しない）
