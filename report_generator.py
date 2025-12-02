@@ -287,6 +287,8 @@ CRITICAL FORMAT RULES:
 5. Do NOT put each sentence on a separate line - keep paragraphs together
 6. For URLs, write naturally in sentences: "Product Name achieved X yen. See: https://..."
 7. NEVER output "URL:" by itself without an actual URL
+8. NEVER generate fake URLs like www.example.com or placeholder URLs
+9. ONLY use real URLs from the market research data provided - if no URL is available, do not mention a URL at all
 
 Do NOT include email greetings, signatures, or template text."""
 
@@ -475,6 +477,19 @@ Do NOT include email greetings, signatures, or template text."""
 
         # 「URL：」や「URL:」プレフィックスを整理（URLがある場合）
         text = re.sub(r'URL[：:]\s*(https?://)', r'\1', text)
+
+        # 偽URLやプレースホルダーURLを削除
+        # www.example.com, example.com, placeholder.com などを含む文を削除
+        fake_url_patterns = [
+            r'[^.]*www\.example\.com[^.]*\.',
+            r'[^.]*example\.com[^.]*\.',
+            r'[^.]*placeholder\.com[^.]*\.',
+            r'[^.]*yourwebsite\.com[^.]*\.',
+            r'For (further |more )?details,? please visit[^.]+\.',
+            r'Please visit[^.]+for (more |further )?details\.',
+        ]
+        for pattern in fake_url_patterns:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
 
         # 連続する空行を1つに整理
         text = re.sub(r'\n{3,}', '\n\n', text)

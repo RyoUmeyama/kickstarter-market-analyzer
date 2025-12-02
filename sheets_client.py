@@ -174,16 +174,25 @@ class GoogleSheetsClient:
             self._update_cell(row_number, 11, en_body_html)
             print(f'✓ English body (HTML) written to K{row_number}')
 
-            # J列に日本語本文HTML版（値 or GOOGLETRANSLATE関数）
+            # J列に日本語本文HTML版
             if japanese_body and japanese_body.strip():
                 jp_body_html = self._convert_to_html(japanese_body)
                 self._update_cell(row_number, 10, jp_body_html)
                 print(f'✓ Japanese body (HTML) written to J{row_number}')
             else:
-                # 空の場合はGOOGLETRANSLATE関数を設定（名前は英語のまま保持、改行を<br>に変換）
-                formula = f'=IF(I{row_number}="", "", SUBSTITUTE(SUBSTITUTE(GOOGLETRANSLATE(I{row_number}, "en", "ja"), GOOGLETRANSLATE(D{row_number}, "en", "ja"), D{row_number}), CHAR(10), "<br>"))'
-                self._update_cell_formula(row_number, 10, formula)
-                print(f'✓ GOOGLETRANSLATE + SUBSTITUTE + HTML formula written to J{row_number}')
+                # H列の翻訳結果を読み取ってHTML変換（URLを<a>タグで囲むため）
+                import time
+                time.sleep(1)  # 数式計算を待つ
+                translated_jp = self._read_cell(row_number, 8)  # H列を読み取り
+                if translated_jp:
+                    jp_body_html = self._convert_to_html(translated_jp)
+                    self._update_cell(row_number, 10, jp_body_html)
+                    print(f'✓ Japanese body (HTML) written to J{row_number} with <a> tags')
+                else:
+                    # フォールバック：数式を使用
+                    formula = f'=IF(I{row_number}="", "", SUBSTITUTE(SUBSTITUTE(GOOGLETRANSLATE(I{row_number}, "en", "ja"), GOOGLETRANSLATE(D{row_number}, "en", "ja"), D{row_number}), CHAR(10), "<br>"))'
+                    self._update_cell_formula(row_number, 10, formula)
+                    print(f'⚠️ Fallback: GOOGLETRANSLATE formula written to J{row_number}')
 
             print(f'✓ Report written to row {row_number}')
 
@@ -222,6 +231,34 @@ class GoogleSheetsClient:
         text = text.replace('\n', '<br>')
 
         return text
+
+    def _read_cell(self, row, col):
+        """
+        特定のセルの値を読み取り
+
+        Args:
+            row (int): 行番号（1始まり）
+            col (int): 列番号（1始まり、A=1, B=2, ...）
+
+        Returns:
+            str: セルの値（空の場合は空文字列）
+        """
+        # 列番号を列名に変換（A, B, C, ...）
+        col_letter = chr(64 + col)  # A=65
+        range_name = f'{self.sheet_name}!{col_letter}{row}'
+
+        try:
+            result = self.service.spreadsheets().values().get(
+                spreadsheetId=self.spreadsheet_id,
+                range=range_name
+            ).execute()
+
+            values = result.get('values', [])
+            if values and len(values) > 0 and len(values[0]) > 0:
+                return values[0][0]
+            return ''
+        except HttpError:
+            return ''
 
     def _update_cell(self, row, col, value):
         """
