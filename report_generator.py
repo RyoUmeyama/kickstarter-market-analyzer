@@ -70,6 +70,61 @@ class ReportGenerator:
             print(f"  ⚠️ Translation failed, using original text: {e}")
             return text
 
+    def _translate_body_to_japanese(self, english_body, product_name=''):
+        """
+        英語本文を日本語に翻訳（会社名・製品名は英語のまま保持）
+
+        Args:
+            english_body (str): 英語本文
+            product_name (str): 製品名/メーカー名（英語のまま保持）
+
+        Returns:
+            str: 日本語本文（名前は英語のまま）
+        """
+        if not english_body or not english_body.strip():
+            return english_body
+
+        if not self.api_available:
+            return ''  # APIがない場合は空文字（GOOGLETRANSLATEにフォールバック）
+
+        try:
+            print(f"  🇯🇵 Translating body to Japanese (keeping names in English)...")
+
+            response = self.client.chat.completions.create(
+                model='gpt-4o-mini',
+                messages=[
+                    {
+                        "role": "system",
+                        "content": """You are a professional English to Japanese translator for business emails.
+
+CRITICAL RULES:
+1. Translate the text to natural, polite Japanese (敬語)
+2. Keep ALL company names, product names, and proper nouns in English (do NOT translate them)
+   - Example: "Dear Tenkara Rod Co.," → "Tenkara Rod Co. 様"
+   - Example: "AKASO" stays as "AKASO"
+   - Example: "Life Support Co., Ltd." stays as "Life Support Co., Ltd."
+3. Keep all URLs exactly as they are
+4. Keep the same formatting (line breaks, sections, bullet points)
+5. Output ONLY the Japanese translation, nothing else"""
+                    },
+                    {
+                        "role": "user",
+                        "content": english_body
+                    }
+                ],
+                max_tokens=16000,
+                temperature=0.3
+            )
+
+            jp_body = response.choices[0].message.content.strip()
+            print(f"  ✓ Japanese body generated ({len(jp_body)} chars)")
+
+            return jp_body
+
+        except Exception as e:
+            print(f"  ⚠️ Japanese translation failed: {e}")
+            return ''  # 失敗時は空文字（GOOGLETRANSLATEにフォールバック）
+
     def generate_report(self, template, kickstarter_url, product_name='', common_prompt='', system_settings=''):
         """
         テンプレートに基づいてレポートを生成
@@ -146,8 +201,8 @@ class ReportGenerator:
                 common_prompt,  # 共通プロンプト（設定シートA2）
                 system_settings  # システム設定（設定シートG2）
             )
-            # 日本語本文は空文字列（Google SheetsのGOOGLETRANSLATE関数で翻訳）
-            jp_body = ''
+            # 日本語本文をAIで生成（名前は英語のまま保持）
+            jp_body = self._translate_body_to_japanese(en_body, product_name)
 
         return {
             'jp_subject': jp_subject,
@@ -242,7 +297,8 @@ class ReportGenerator:
   Correct: "Product ABC" (https://www.makuake.com/project/xxx) raised 1,234,567 yen
   Wrong: "Product ABC", URL: https://...
 - NEVER create a "Sources", "Information Sources", "情報源", or "References" section at the end
-- URLs are already inline, so listing them again at the end is redundant and prohibited"""
+- URLs are already inline, so listing them again at the end is redundant and prohibited
+- Keep all company names and product names in their original English form (do NOT translate proper nouns)"""
 
             print(f"  🤖 Calling OpenAI API with translated prompts...")
 
