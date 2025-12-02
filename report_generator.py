@@ -247,7 +247,7 @@ RULES:
 - Do NOT include email greetings, signatures, or other template parts
 - Use PLAIN TEXT only - NO markdown formatting (no *, **, #, -, bullet points, etc.)
 - Keep all URLs exactly as they are - do NOT replace them with [URL] or any placeholder
-- Include URLs INLINE with product names using parentheses
+- Include URLs INLINE with product names using square brackets, like: Product Name [URL]
 - NEVER create a "Sources", "Information Sources", or "References" section at the end
 - Keep all company names and product names in their original English form"""
 
@@ -444,16 +444,16 @@ Just output the market analysis report content in plain English text."""
         for pattern in sources_patterns:
             text = re.sub(pattern, '\n', text, flags=re.IGNORECASE)
 
-        # 「URL：」や「URL:」プレフィックスを括弧形式に変換
-        # 例: 「製品名」、URL：https://... → 「製品名」(https://...)
-        text = re.sub(r'[、,]\s*URL[：:]\s*(https?://[^\s]+)', r' (\1)', text)
+        # 「URL：」や「URL:」プレフィックスを角括弧形式に変換
+        # 例: 「製品名」、URL：https://... → 「製品名」 [https://...]
+        text = re.sub(r'[、,]\s*URL[：:]\s*(https?://[^\s]+)', r' [\1]', text)
 
         # URLの前後に半角スペースを追加（日本語テキストがくっつかないように）
-        # 例: 製品名https://example.comは → 製品名 https://example.com は
-        # URLの前にスペース（スペース・改行・括弧の後でない場合）
-        text = re.sub(r'([^\s\n\(（])(https?://)', r'\1 \2', text)
-        # URLの後にスペース（スペース・改行・括弧の前でない場合）
-        text = re.sub(r'(https?://[^\s\)）\n]+)([^\s\)）\n])', r'\1 \2', text)
+        # 例: 製品名[https://example.com]は → 製品名 [https://example.com] は
+        # URLまたは角括弧付きURLの前にスペース
+        text = re.sub(r'([^\s\n\[\(（])(\[?https?://)', r'\1 \2', text)
+        # URLまたは角括弧付きURLの後にスペース
+        text = re.sub(r'(https?://[^\s\]\)）\n]+\]?)([^\s\]\)）\n])', r'\1 \2', text)
 
         return text.strip()
 
