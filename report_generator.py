@@ -33,6 +33,43 @@ class ReportGenerator:
             self.api_available = False
             self.market_searcher = None
 
+    def _translate_to_english(self, text):
+        """
+        日本語テキストを英語に翻訳（API送信用）
+
+        Args:
+            text (str): 翻訳するテキスト
+
+        Returns:
+            str: 英訳されたテキスト
+        """
+        if not text or not text.strip():
+            return text
+
+        if not self.api_available:
+            return text
+
+        try:
+            response = self.client.chat.completions.create(
+                model='gpt-4o-mini',  # 翻訳は軽量モデルで十分
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a professional translator. Translate the following Japanese text to English. Keep the same formatting (bullet points, sections, etc.). Only output the translation, nothing else."
+                    },
+                    {
+                        "role": "user",
+                        "content": text
+                    }
+                ],
+                max_tokens=4000,
+                temperature=0.3
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"  ⚠️ Translation failed, using original text: {e}")
+            return text
+
     def generate_report(self, template, kickstarter_url, product_name='', common_prompt='', system_settings=''):
         """
         テンプレートに基づいてレポートを生成
@@ -149,48 +186,73 @@ class ReportGenerator:
                 search_results = self.market_searcher.search_similar_products(kickstarter_url, product_name)
                 market_research_data = self.market_searcher.format_for_prompt(search_results)
 
-            # ユーザープロンプト（テンプレート + 分析指示 + 市場調査データ）
-            combined_prompt = f"""【メール本文テンプレート】
+            # === 日本語プロンプトを英語に翻訳（API送信用） ===
+            print(f"  🌐 Translating prompts to English...")
+
+            # 分析指示（A3）を英訳
+            translated_prompt = self._translate_to_english(processed_prompt)
+            print(f"    ✓ Analysis instructions translated")
+
+            # 市場調査データを英訳
+            if market_research_data:
+                translated_market_data = self._translate_to_english(market_research_data)
+                print(f"    ✓ Market research data translated")
+            else:
+                translated_market_data = ""
+
+            # システム設定（G2）を英訳
+            if system_settings and system_settings.strip():
+                translated_system_settings = self._translate_to_english(system_settings)
+                print(f"    ✓ System settings translated")
+            else:
+                translated_system_settings = ""
+
+            # 共通プロンプト（A2）を英訳
+            if common_prompt and common_prompt.strip():
+                translated_common_prompt = self._translate_to_english(common_prompt)
+                print(f"    ✓ Common prompt translated")
+            else:
+                translated_common_prompt = ""
+
+            # ユーザープロンプト（テンプレート + 英訳された分析指示 + 英訳された市場調査データ）
+            combined_prompt = f"""[EMAIL TEMPLATE - Preserve this structure exactly]
 {processed_body_template}
 
-【分析指示】
-{processed_prompt}
+[ANALYSIS INSTRUCTIONS]
+{translated_prompt}
 
-{market_research_data}
+{translated_market_data}
 
-=== 出力形式 ===
-- 英語のみで出力（ENGLISH ONLY）
-- テンプレートの{{{{レポート}}}}部分のみをレポートで置き換える
-- テンプレートの他の部分は完全に保持する"""
+=== OUTPUT FORMAT ===
+- Output in ENGLISH ONLY
+- Replace ONLY the {{{{レポート}}}} placeholder with the generated report
+- Preserve ALL other template content exactly as written"""
 
-            print(f"  🤖 Calling OpenAI API with template + prompt to generate complete English body...")
+            print(f"  🤖 Calling OpenAI API with translated prompts...")
 
-            # システムプロンプトを構築
-            # 最小限の技術的ルール（コード側で固定）
+            # システムプロンプトを構築（英語）
             base_system_prompt = """You are a professional business consultant. Generate the report in ENGLISH ONLY.
 
 CRITICAL RULES:
 1. Replace ONLY the {{レポート}} placeholder with the generated report
 2. Preserve ALL other template content exactly as written
-3. DO NOT translate Japanese text (e.g., "宜しくお願い致します。" stays as is)
+3. DO NOT translate Japanese text in the template (e.g., "宜しくお願い致します。" stays as is)
 4. DO NOT rename sections (e.g., "Company & Performance References" stays as is)
 5. Use plain text URLs (no markdown links)"""
 
-            # システム設定（スプレッドシートG2）を追加
-            if system_settings and system_settings.strip():
+            # 英訳されたシステム設定を追加
+            if translated_system_settings:
                 system_prompt = f"""{base_system_prompt}
 
-{system_settings}"""
-                print(f"  📋 システム設定を適用しました")
+{translated_system_settings}"""
             else:
                 system_prompt = base_system_prompt
 
-            # 共通プロンプト（スプレッドシートA2）を追加
-            if common_prompt and common_prompt.strip():
+            # 英訳された共通プロンプトを追加
+            if translated_common_prompt:
                 system_prompt = f"""{system_prompt}
 
-{common_prompt}"""
-                print(f"  📋 共通プロンプトを適用しました")
+{translated_common_prompt}"""
 
             # OpenAI APIを呼び出し（日本語プロンプト + 英語テンプレート → 完全な英語本文）
             response = self.client.chat.completions.create(
