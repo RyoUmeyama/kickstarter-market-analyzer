@@ -939,7 +939,9 @@ URL: {kickstarter_url}
         lines.append("3. 上記に記載のないデータは絶対に追加しない")
         lines.append("4. 市場予測は上記データを根拠として計算すること")
         lines.append("5. 類似製品が0件の場合は「見つからなかった」と正直に記載")
-        lines.append("6. レポート末尾に使用したURLを「情報源」として列挙")
+        lines.append("6. 各製品を記載する際、製品名と金額の直後にURLを括弧で含める")
+        lines.append("   例: 「○○○」は1,234,567円を調達しました (https://www.makuake.com/project/xxx)")
+        lines.append("7. 末尾に別途「情報源」セクションを作らない - URLは文中に含める")
         lines.append("=" * 50)
 
         return "\n".join(lines)

@@ -238,7 +238,10 @@ CRITICAL RULES:
 2. Preserve ALL other template content exactly as written
 3. DO NOT translate Japanese text in the template (e.g., "宜しくお願い致します。" stays as is)
 4. DO NOT rename sections (e.g., "Company & Performance References" stays as is)
-5. Use plain text URLs (no markdown links)"""
+5. Use plain text URLs (no markdown links)
+6. Include URLs INLINE with product mentions, not in a separate section at the end
+   Example: "Product ABC" raised 1,234,567 yen (https://www.makuake.com/project/xxx)
+7. Do NOT create a separate "Sources" or "Information Sources" section at the end"""
 
             # 英訳されたシステム設定を追加
             if translated_system_settings:
