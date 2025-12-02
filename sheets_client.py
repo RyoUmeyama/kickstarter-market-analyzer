@@ -164,8 +164,8 @@ class GoogleSheetsClient:
                 print(f'✓ Japanese body written to H{row_number}')
             else:
                 # 空の場合はGOOGLETRANSLATE関数を設定（名前は英語のまま保持）
-                # SUBSTITUTE で翻訳された名前を英語の名前に置き換え
-                formula = f'=IF(I{row_number}="", "", SUBSTITUTE(GOOGLETRANSLATE(I{row_number}, "en", "ja"), GOOGLETRANSLATE(D{row_number}, "en", "ja"), D{row_number}&" 様"))'
+                # SUBSTITUTE で翻訳された名前を英語の名前に置き換え（様は追加しない - 翻訳時に付与済み）
+                formula = f'=IF(I{row_number}="", "", SUBSTITUTE(GOOGLETRANSLATE(I{row_number}, "en", "ja"), GOOGLETRANSLATE(D{row_number}, "en", "ja"), D{row_number}))'
                 self._update_cell_formula(row_number, 8, formula)
                 print(f'✓ GOOGLETRANSLATE + SUBSTITUTE formula written to H{row_number}')
 
@@ -181,7 +181,7 @@ class GoogleSheetsClient:
                 print(f'✓ Japanese body (HTML) written to J{row_number}')
             else:
                 # 空の場合はGOOGLETRANSLATE関数を設定（名前は英語のまま保持、改行を<br>に変換）
-                formula = f'=IF(I{row_number}="", "", SUBSTITUTE(SUBSTITUTE(GOOGLETRANSLATE(I{row_number}, "en", "ja"), GOOGLETRANSLATE(D{row_number}, "en", "ja"), D{row_number}&" 様"), CHAR(10), "<br>"))'
+                formula = f'=IF(I{row_number}="", "", SUBSTITUTE(SUBSTITUTE(GOOGLETRANSLATE(I{row_number}, "en", "ja"), GOOGLETRANSLATE(D{row_number}, "en", "ja"), D{row_number}), CHAR(10), "<br>"))'
                 self._update_cell_formula(row_number, 10, formula)
                 print(f'✓ GOOGLETRANSLATE + SUBSTITUTE + HTML formula written to J{row_number}')
 

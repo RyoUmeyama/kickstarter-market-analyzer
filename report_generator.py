@@ -326,7 +326,16 @@ Just output the market analysis report content in plain English text."""
             generated_report = self._clean_generated_body(generated_report)
 
             # テンプレートの前半 + 生成されたレポート + テンプレートの後半を結合
-            final_body = template_before + generated_report + template_after
+            # 各部分の間に適切な改行を追加
+            parts = []
+            if template_before and template_before.strip():
+                parts.append(template_before.rstrip())
+            if generated_report and generated_report.strip():
+                parts.append(generated_report.strip())
+            if template_after and template_after.strip():
+                parts.append(template_after.lstrip())
+
+            final_body = '\n\n'.join(parts)
             print(f"  ✓ Final body assembled ({len(final_body)} chars)")
 
             return final_body
