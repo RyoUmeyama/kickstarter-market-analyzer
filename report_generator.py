@@ -56,9 +56,10 @@ class ReportGenerator:
 RULES:
 1. Keep the same formatting (line breaks, sections, etc.)
 2. Keep all company names and product names in their original form (do NOT translate proper nouns)
-3. Do NOT use any markdown formatting (no *, **, #, -, etc.)
-4. Output plain text only
-5. Only output the translation, nothing else."""
+3. Keep all circled numbers (①②③④⑤ etc.) exactly as they are - do NOT convert to regular numbers
+4. Do NOT use any markdown formatting (no *, **, #, -, etc.)
+5. Output plain text only
+6. Only output the translation, nothing else."""
 
             response = self.client.chat.completions.create(
                 model='gpt-4o-mini',  # 翻訳は軽量モデルで十分
