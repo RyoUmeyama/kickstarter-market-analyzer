@@ -53,13 +53,15 @@ class ReportGenerator:
             system_content = """You are a professional translator. Translate the following Japanese text to English.
 
 RULES:
-1. Keep the same formatting (line breaks, sections, etc.)
+1. Keep the same formatting (line breaks, blank lines between sections)
 2. Keep all company names and product names in their original form (do NOT translate proper nouns)
 3. Preserve all numbering - circled numbers (①②③) can be converted to regular numbers (1. 2. 3.) but NEVER remove them
-4. Keep all URLs exactly as they are - do NOT replace them with [URL] or any placeholder
-5. Do NOT use any markdown formatting (no *, **, #, -, etc.)
-6. Output plain text only
-7. Only output the translation, nothing else."""
+4. Keep all URLs exactly as they are - do NOT modify, shorten, or wrap them
+5. NEVER put URLs inside parentheses () or brackets []
+6. URLs should be on their own line, prefixed with "URL: "
+7. Do NOT use any markdown formatting (no *, **, #, -, etc.)
+8. Output plain text only
+9. Only output the translation, nothing else."""
 
             response = self.client.chat.completions.create(
                 model='gpt-4o-mini',
@@ -250,12 +252,17 @@ IMPORTANT INSTRUCTIONS:
 5. Explain WHY this product would succeed in Japan (specific reasons, not generic)
 6. Recommend specific launch timing, pricing strategy, and marketing channels
 
-OUTPUT REQUIREMENTS:
-- Write in ENGLISH ONLY (no Japanese characters)
-- Use PLAIN TEXT only (no markdown: no *, #, -, etc.)
-- Keep all URLs exactly as provided - never modify them
-- Include product URLs inline with their names
-- Focus on actionable insights, not general market overviews"""
+OUTPUT FORMAT RULES:
+1. Write in ENGLISH ONLY (no Japanese characters)
+2. Use PLAIN TEXT only (no markdown: no *, #, -, bullet points, etc.)
+3. Use proper paragraph breaks with blank lines between sections
+4. For URLs, use this format (URL on its own line):
+   Product Name
+   URL: https://example.com
+   Funding: X yen
+5. NEVER put URLs inside parentheses () or brackets []
+6. Each section should have a clear title followed by a blank line
+7. Keep paragraphs concise and well-structured"""
 
             print(f"  🤖 Calling OpenAI API with translated prompts...")
 
@@ -278,9 +285,17 @@ WRITING STYLE:
 
 CRITICAL FORMAT RULES:
 1. Write in ENGLISH ONLY - absolutely NO Japanese characters
-2. Use PLAIN TEXT only - NO markdown formatting (no *, **, #, -, etc.)
-3. Generate ONLY the report content itself
-4. Keep all URLs exactly as they are - never modify or replace them
+2. Use PLAIN TEXT only - NO markdown (no *, **, #, -, bullet points)
+3. Use clear paragraph breaks (blank lines) between sections
+4. For product references with URLs, use this format:
+
+   Product Name
+   URL: https://...
+   Funding: X yen
+
+5. NEVER put URLs inside parentheses () or brackets []
+6. URLs must be on their own line, prefixed with "URL: "
+7. Keep each section title on its own line, followed by a blank line
 
 Do NOT include email greetings, signatures, or template text."""
 
@@ -457,9 +472,17 @@ Do NOT include email greetings, signatures, or template text."""
         for pattern in sources_patterns:
             text = re.sub(pattern, '\n', text, flags=re.IGNORECASE)
 
-        # 「URL：」や「URL:」プレフィックスを削除してURLのみ残す
-        # 例: 「製品名」、URL：https://... → 「製品名」 https://...
-        text = re.sub(r'[、,]\s*URL[：:]\s*(https?://)', r' \1', text)
+        # 括弧で囲まれたURLを修正（URLを独立した行に）
+        # 半角括弧: (https://...) → \nURL: https://...
+        text = re.sub(r'\s*\(\s*(https?://[^\s\)]+)\s*\)', r'\nURL: \1', text)
+        # 全角括弧: （https://...） → \nURL: https://...
+        text = re.sub(r'\s*（\s*(https?://[^\s）]+)\s*）', r'\nURL: \1', text)
+
+        # 「URL：」や「URL:」の前の余分な文字を整理
+        text = re.sub(r'[、,]\s*URL[：:]\s*(https?://)', r'\nURL: \1', text)
+
+        # 連続する空行を1つに整理
+        text = re.sub(r'\n{3,}', '\n\n', text)
 
         return text.strip()
 
