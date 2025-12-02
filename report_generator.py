@@ -149,11 +149,20 @@ class ReportGenerator:
             # プロンプト + 本文テンプレート + 市場調査データを組み合わせる
             combined_prompt = f"""あなたの仕事は、以下の【メール本文テンプレート】をベースにして、【分析指示】に従ってレポート部分を生成し、完成したメール本文を出力することです。
 
-=== 最重要ルール ===
+=== 最重要ルール（絶対に守ること） ===
 1. 【メール本文テンプレート】の文章構造・文面を必ず維持すること
 2. テンプレート内の {{{{レポート}}}} または {{{{レポ―ト}}}} の部分のみを、生成したレポートで置き換えること
 3. テンプレートの挨拶文、署名、その他の部分は一切変更しないこと
 4. テンプレートにない文章を勝手に追加しないこと
+
+=== 超重要：{{{{レポート}}}}の前後の内容を必ず保持 ===
+テンプレートには以下の構造があります：
+  [冒頭の挨拶・説明文] ← これを保持
+  {{{{レポート}}}} ← ここだけをレポートに置き換え
+  [会社実績・追加情報など] ← これを保持（絶対に削除しない！）
+  [署名] ← これを保持
+
+※ {{{{レポート}}}}の【後ろ】にある「会社実績」「追加情報」などのセクションは絶対に削除しないでください！
 
 【メール本文テンプレート（これをベースにする）】
 {processed_body_template}
@@ -165,6 +174,8 @@ class ReportGenerator:
 
 === 出力ルール ===
 - テンプレートの構造を完全に保持し、{{{{レポート}}}} 部分のみを置き換える
+- {{{{レポート}}}}の前にある文章を全て出力する
+- {{{{レポート}}}}の後ろにある文章（会社実績など）も全て出力する
 - 出力は英語のみ（ENGLISH ONLY）
 - Subject行は含めない - メール本文のみ出力
 - URLはプレーンテキストで記載（マークダウンリンク禁止）
@@ -176,20 +187,28 @@ class ReportGenerator:
 - □や■などの記号は使用禁止
 - サブ項目には「・」を使用
 
-OUTPUT LANGUAGE: ENGLISH ONLY"""
+OUTPUT LANGUAGE: ENGLISH ONLY
 
             print(f"  🤖 Calling OpenAI API with template + prompt to generate complete English body...")
 
             # システムプロンプトを構築（共通プロンプト + デフォルト指示）
             default_system_prompt = """You are a professional email composer. Your task is to complete an email by filling in the report section while preserving the original template structure.
 
-=== CRITICAL: TEMPLATE PRESERVATION ===
+=== CRITICAL: TEMPLATE PRESERVATION (MOST IMPORTANT) ===
 
+The template has this structure:
+  [Opening greeting/explanation] ← KEEP THIS
+  {{レポート}} ← REPLACE ONLY THIS with your report
+  [Company achievements/additional info] ← KEEP THIS (DO NOT DELETE!)
+  [Signature] ← KEEP THIS
+
+RULES:
 1. The email template provided is the BASE STRUCTURE - you MUST preserve it exactly
 2. Only replace the {{レポート}} or {{レポ―ト}} placeholder with the generated report
 3. DO NOT modify, remove, or rearrange any other parts of the template
 4. Keep all greetings, signatures, and other template text unchanged
 5. DO NOT add new sections that don't exist in the template
+6. IMPORTANT: Content AFTER {{レポート}} (like company achievements) MUST be preserved!
 
 === DATA ACCURACY ===
 
@@ -207,6 +226,7 @@ OUTPUT LANGUAGE: ENGLISH ONLY"""
 4. FORBIDDEN:
    - Fabricating product names, URLs, or funding amounts
    - Adding content not in the template structure
+   - Removing any content from the template (especially after {{レポート}})
 
 === FORMATTING (MUST FOLLOW) ===
 
@@ -221,8 +241,11 @@ OUTPUT LANGUAGE: ENGLISH ONLY"""
 === OUTPUT ===
 
 - ENGLISH ONLY
-- Preserve template structure completely
-- Replace only {{レポート}} section
+- Output the COMPLETE email including ALL sections from the template
+- Include content BEFORE {{レポート}}
+- Include the generated report (replacing {{レポート}})
+- Include content AFTER {{レポート}} (company achievements, etc.)
+- Include signature
 - No subject line"""
 
             # 共通プロンプトがある場合は先頭に追加
