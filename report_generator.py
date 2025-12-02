@@ -33,13 +33,13 @@ class ReportGenerator:
             self.api_available = False
             self.market_searcher = None
 
-    def _translate_to_english(self, text, preserve_names=True):
+    def _translate_to_english(self, text, translation_rules=''):
         """
         日本語テキストを英語に翻訳（API送信用）
 
         Args:
             text (str): 翻訳するテキスト
-            preserve_names (bool): 会社名・製品名を英語のまま保持するか
+            translation_rules (str): 翻訳ルール（スプレッドシートから読み込み）
 
         Returns:
             str: 英訳されたテキスト
@@ -51,40 +51,29 @@ class ReportGenerator:
             return text
 
         try:
-            system_content = """You are a professional translator. Translate the following Japanese text to English.
-
-RULES:
-1. Keep the same formatting (line breaks, sections, etc.)
-2. Keep all company names and product names in their original form (do NOT translate proper nouns)
-3. IMPORTANT: Preserve all numbering - circled numbers (①②③) can be converted to regular numbers (1. 2. 3.) but NEVER remove them
-4. Do NOT use any markdown formatting (no *, **, #, -, etc.)
-5. Output plain text only
-6. Only output the translation, nothing else."""
+            # 基本的な役割定義のみコードで指定、詳細ルールはスプレッドシートから
+            system_content = "You are a professional translator. Translate the following Japanese text to English. Only output the translation, nothing else."
+            if translation_rules and translation_rules.strip():
+                system_content = f"{system_content}\n\n{translation_rules}"
 
             response = self.client.chat.completions.create(
-                model='gpt-4o-mini',  # 翻訳は軽量モデルで十分
+                model='gpt-4o-mini',
                 messages=[
-                    {
-                        "role": "system",
-                        "content": system_content
-                    },
-                    {
-                        "role": "user",
-                        "content": text
-                    }
+                    {"role": "system", "content": system_content},
+                    {"role": "user", "content": text}
                 ],
                 max_tokens=4000,
                 temperature=0.3
             )
             translated = response.choices[0].message.content.strip()
-            # マークダウン記法を削除（翻訳結果にも適用）
+            # 後処理（正規表現によるクリーンアップ）
             translated = self._clean_generated_body(translated)
             return translated
         except Exception as e:
             print(f"  ⚠️ Translation failed, using original text: {e}")
             return text
 
-    def generate_report(self, template, kickstarter_url, product_name='', common_prompt='', system_settings=''):
+    def generate_report(self, template, kickstarter_url, product_name='', common_prompt='', system_settings='', translation_rules='', output_format_rules=''):
         """
         テンプレートに基づいてレポートを生成
 
@@ -96,28 +85,19 @@ RULES:
 
         Args:
             template (dict): テンプレート設定
-                {
-                    'jp_subject': 日本語件名（GOOGLETRANSLATE関数）,
-                    'en_subject': 英語件名,
-                    'jp_body': 日本語本文（GOOGLETRANSLATE関数）,
-                    'en_body': 英語本文,
-                    'jp_prompt': （未使用、B3は空のはず）,
-                    'en_prompt': A3のプロンプト（日本語で記載）
-                }
             kickstarter_url (str): Kickstarter URL
             product_name (str, optional): 製品名/メーカー名
             common_prompt (str, optional): 共通プロンプト（設定シートA2から読み込み）
             system_settings (str, optional): システム設定（設定シートG2から読み込み）
+            translation_rules (str, optional): 翻訳ルール（設定シートH2から読み込み）
+            output_format_rules (str, optional): 出力形式ルール（設定シートI2から読み込み）
 
         Returns:
             dict: 生成されたレポート
-                {
-                    'jp_subject': 日本語件名（GOOGLETRANSLATE関数の結果）,
-                    'en_subject': 英語件名,
-                    'jp_body': 日本語本文（GOOGLETRANSLATE関数の結果 or 空文字列）,
-                    'en_body': 英語本文
-                }
         """
+        # 翻訳ルールを保存（_translate_to_english で使用）
+        self._translation_rules = translation_rules
+        self._output_format_rules = output_format_rules
         # 件名のプレースホルダーを置換（GOOGLETRANSLATE関数の結果がそのまま入っている）
         en_subject = self._replace_placeholders(
             template['en_subject'],
@@ -210,10 +190,10 @@ RULES:
             # テンプレート部分を英語に翻訳（日本語が含まれている場合）
             print(f"  🌐 Translating template parts to English...")
             if template_before and template_before.strip():
-                template_before = self._translate_to_english(template_before)
+                template_before = self._translate_to_english(template_before, self._translation_rules)
                 print(f"    ✓ Template before placeholder translated")
             if template_after and template_after.strip():
-                template_after = self._translate_to_english(template_after)
+                template_after = self._translate_to_english(template_after, self._translation_rules)
                 print(f"    ✓ Template after placeholder translated")
 
             # 市場調査：類似製品を検索
@@ -226,81 +206,54 @@ RULES:
             print(f"  🌐 Translating prompts to English...")
 
             # 分析指示（A3）を英訳
-            translated_prompt = self._translate_to_english(processed_prompt)
+            translated_prompt = self._translate_to_english(processed_prompt, self._translation_rules)
             print(f"    ✓ Analysis instructions translated")
 
             # 市場調査データを英訳
             if market_research_data:
-                translated_market_data = self._translate_to_english(market_research_data)
+                translated_market_data = self._translate_to_english(market_research_data, self._translation_rules)
                 print(f"    ✓ Market research data translated")
             else:
                 translated_market_data = ""
 
             # システム設定（G2）を英訳
             if system_settings and system_settings.strip():
-                translated_system_settings = self._translate_to_english(system_settings)
+                translated_system_settings = self._translate_to_english(system_settings, self._translation_rules)
                 print(f"    ✓ System settings translated")
             else:
                 translated_system_settings = ""
 
             # 共通プロンプト（A2）を英訳
             if common_prompt and common_prompt.strip():
-                translated_common_prompt = self._translate_to_english(common_prompt)
+                translated_common_prompt = self._translate_to_english(common_prompt, self._translation_rules)
                 print(f"    ✓ Common prompt translated")
             else:
                 translated_common_prompt = ""
 
             # ユーザープロンプト（レポート部分のみ生成を依頼）
+            # 出力形式ルールはスプレッドシートから読み込み
+            output_format = self._output_format_rules if self._output_format_rules else ""
             combined_prompt = f"""[ANALYSIS INSTRUCTIONS]
 {translated_prompt}
 
 {translated_market_data}
 
-=== OUTPUT FORMAT ===
-- Output in ENGLISH ONLY - absolutely NO Japanese characters allowed (no hiragana, katakana, or kanji)
-- Generate ONLY the report content (the part that replaces the placeholder)
-- Do NOT include email greetings, signatures, or other template parts
-- Use PLAIN TEXT only - NO markdown formatting (no *, **, #, -, bullet points, etc.)
-- Use plain text URLs (no markdown links like [text](url))
-- Include URLs INLINE with product names using parentheses (do NOT use "URL:" prefix)
-  Correct: "Product ABC" (https://www.makuake.com/project/xxx) raised 1,234,567 yen
-  Wrong: "Product ABC", URL: https://...
-- NEVER create a "Sources", "Information Sources", "情報源", or "References" section at the end
-- URLs are already inline, so listing them again at the end is redundant and prohibited
-- Keep all company names and product names in their original English form"""
+{output_format}"""
 
             print(f"  🤖 Calling OpenAI API with translated prompts...")
 
-            # システムプロンプトを構築（英語）
-            base_system_prompt = """You are a professional business consultant. Generate the market analysis report in ENGLISH ONLY.
+            # システムプロンプトを構築
+            # 基本的な役割定義のみコードで指定、詳細ルールはスプレッドシートから
+            base_system_prompt = "You are a professional business consultant. Generate the market analysis report content only."
 
-CRITICAL RULES:
-1. Write in ENGLISH ONLY - absolutely NO Japanese characters (no hiragana, katakana, kanji)
-2. Use PLAIN TEXT only - NO markdown formatting (no asterisks *, no headers #, no bullet points -)
-3. Generate ONLY the report content itself
-
-Do NOT include:
-- Email greetings (Dear..., etc.)
-- Signatures
-- Company references sections
-- Any template text
-- Any Japanese text
-
-Just output the market analysis report content in plain English text."""
-
-            # 英訳されたシステム設定を追加
+            # システム設定（G2）と共通プロンプト（A2）を追加
+            system_parts = [base_system_prompt]
             if translated_system_settings:
-                system_prompt = f"""{base_system_prompt}
-
-{translated_system_settings}"""
-            else:
-                system_prompt = base_system_prompt
-
-            # 英訳された共通プロンプトを追加
+                system_parts.append(translated_system_settings)
             if translated_common_prompt:
-                system_prompt = f"""{system_prompt}
+                system_parts.append(translated_common_prompt)
 
-{translated_common_prompt}"""
+            system_prompt = "\n\n".join(system_parts)
 
             # OpenAI APIを呼び出し（レポート部分のみ生成）
             response = self.client.chat.completions.create(

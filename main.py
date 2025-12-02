@@ -53,6 +53,8 @@ def main():
     print("設定を読み込み中...")
     common_prompt = sheets_client.get_common_prompt()
     system_settings = sheets_client.get_system_settings()
+    translation_rules = sheets_client.get_translation_rules()
+    output_format_rules = sheets_client.get_output_format_rules()
     print()
 
     # 未処理の行を取得
@@ -96,7 +98,9 @@ def main():
                 row_data['url'],
                 product_name=row_data.get('name', ''),
                 common_prompt=common_prompt,
-                system_settings=system_settings
+                system_settings=system_settings,
+                translation_rules=translation_rules,
+                output_format_rules=output_format_rules
             )
 
             # Google Sheetsに書き込み

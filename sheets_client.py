@@ -399,6 +399,52 @@ class GoogleSheetsClient:
             print(f'⚠️  システム設定の読み込みエラー: {err}')
             return ''
 
+    def get_translation_rules(self):
+        """
+        設定シートから翻訳ルールを読み取る
+
+        Returns:
+            str: 翻訳ルール（H2セルの内容）
+                 設定シートが存在しない場合やエラー時は空文字列を返す
+        """
+        try:
+            rows = self.read_rows(sheet_name='設定', column_range='H2:H2')
+
+            if rows and len(rows) > 0 and len(rows[0]) > 0:
+                translation_rules = rows[0][0]
+                print(f'✓ 翻訳ルールを読み込みました（{len(translation_rules)}文字）')
+                return translation_rules
+            else:
+                print('⚠️  設定シートに翻訳ルールが設定されていません')
+                return ''
+
+        except HttpError as err:
+            print(f'⚠️  翻訳ルールの読み込みエラー: {err}')
+            return ''
+
+    def get_output_format_rules(self):
+        """
+        設定シートから出力形式ルールを読み取る
+
+        Returns:
+            str: 出力形式ルール（I2セルの内容）
+                 設定シートが存在しない場合やエラー時は空文字列を返す
+        """
+        try:
+            rows = self.read_rows(sheet_name='設定', column_range='I2:I2')
+
+            if rows and len(rows) > 0 and len(rows[0]) > 0:
+                output_format_rules = rows[0][0]
+                print(f'✓ 出力形式ルールを読み込みました（{len(output_format_rules)}文字）')
+                return output_format_rules
+            else:
+                print('⚠️  設定シートに出力形式ルールが設定されていません')
+                return ''
+
+        except HttpError as err:
+            print(f'⚠️  出力形式ルールの読み込みエラー: {err}')
+            return ''
+
     def get_unprocessed_rows(self):
         """
         未処理の行を取得（H列（jp_body）が空、または短い文字列のみの行）
