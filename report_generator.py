@@ -56,7 +56,7 @@ class ReportGenerator:
 RULES:
 1. Keep the same formatting (line breaks, sections, etc.)
 2. Keep all company names and product names in their original form (do NOT translate proper nouns)
-3. Keep all circled numbers (①②③④⑤ etc.) exactly as they are - do NOT convert to regular numbers
+3. IMPORTANT: Preserve all numbering - circled numbers (①②③) can be converted to regular numbers (1. 2. 3.) but NEVER remove them
 4. Do NOT use any markdown formatting (no *, **, #, -, etc.)
 5. Output plain text only
 6. Only output the translation, nothing else."""
