@@ -155,14 +155,18 @@ class ReportGenerator:
 3. テンプレートの挨拶文、署名、その他の部分は一切変更しないこと
 4. テンプレートにない文章を勝手に追加しないこと
 
-=== 超重要：{{{{レポート}}}}の前後の内容を必ず保持 ===
+=== 超重要：{{{{レポート}}}}の前後の内容を完全に保持 ===
 テンプレートには以下の構造があります：
   [冒頭の挨拶・説明文] ← これを保持
   {{{{レポート}}}} ← ここだけをレポートに置き換え
-  [会社実績・追加情報など] ← これを保持（絶対に削除しない！）
+  [Company & Performance References] ← これを**そのまま**保持（タイトルを変更しない！）
+  [宜しくお願い致します。] ← これを**そのまま**保持（英訳しない！）
   [署名] ← これを保持
 
-※ {{{{レポート}}}}の【後ろ】にある「会社実績」「追加情報」などのセクションは絶対に削除しないでください！
+※ 絶対に守ること：
+- 「Company & Performance References」を「Information Sources」に変更しない
+- 「宜しくお願い致します。」を「Best regards,」に翻訳しない
+- テンプレートの日本語部分はそのまま維持する
 
 【メール本文テンプレート（これをベースにする）】
 {processed_body_template}
@@ -213,10 +217,11 @@ OUTPUT LANGUAGE: ENGLISH ONLY
 === CRITICAL: TEMPLATE PRESERVATION (MOST IMPORTANT) ===
 
 The template has this structure:
-  [Opening greeting/explanation] ← KEEP THIS
+  [Opening greeting/explanation] ← KEEP THIS EXACTLY
   {{レポート}} ← REPLACE ONLY THIS with your report
-  [Company achievements/additional info] ← KEEP THIS (DO NOT DELETE!)
-  [Signature] ← KEEP THIS
+  [Company & Performance References] ← KEEP THIS TITLE EXACTLY (NOT "Information Sources")
+  [宜しくお願い致します。] ← KEEP THIS EXACTLY (DO NOT translate to "Best regards,")
+  [Signature] ← KEEP THIS EXACTLY
 
 RULES:
 1. The email template provided is the BASE STRUCTURE - you MUST preserve it exactly
@@ -224,7 +229,9 @@ RULES:
 3. DO NOT modify, remove, or rearrange any other parts of the template
 4. Keep all greetings, signatures, and other template text unchanged
 5. DO NOT add new sections that don't exist in the template
-6. IMPORTANT: Content AFTER {{レポート}} (like company achievements) MUST be preserved!
+6. IMPORTANT: Content AFTER {{レポート}} MUST be preserved EXACTLY as written!
+7. DO NOT translate Japanese text in the template (e.g., "宜しくお願い致します。" stays as is)
+8. DO NOT rename section titles (e.g., "Company & Performance References" stays as is)
 
 === DATA ACCURACY ===
 
@@ -232,17 +239,23 @@ RULES:
    - Product names, URLs, funding amounts MUST come from provided data
    - NEVER fabricate any product information
 
-2. WHEN NO SIMILAR PRODUCTS WERE FOUND:
-   - State clearly: "No similar products were found"
-   - Present as market opportunity
+2. FOR KICKSTARTER DATA (price, funding amount):
+   - If specific Kickstarter price/funding data is NOT provided in the market research, write: "Please refer to the Kickstarter page for current pricing and funding details"
+   - DO NOT make up Kickstarter prices or funding amounts
+
+3. WHEN NO SIMILAR PRODUCTS WERE FOUND:
+   - State clearly: "No similar products were found in Japanese crowdfunding platforms"
+   - Present this as a market opportunity
    - DO NOT make up fictional products
 
-3. PREDICTIONS must be based on real data with citations
+4. PREDICTIONS must be based on real data with citations
 
-4. FORBIDDEN:
+5. FORBIDDEN:
    - Fabricating product names, URLs, or funding amounts
+   - Making up Kickstarter-specific data (price, backers, funding)
    - Adding content not in the template structure
-   - Removing any content from the template (especially after {{レポート}})
+   - Removing any content from the template
+   - Translating or renaming template sections
 
 === FORMATTING (MUST FOLLOW) ===
 
