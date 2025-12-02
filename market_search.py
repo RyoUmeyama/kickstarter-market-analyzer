@@ -942,7 +942,8 @@ URL: {kickstarter_url}
         lines.append("6. 各製品を記載する際、製品名の直後に括弧でURLを含める（「URL：」は不要）")
         lines.append("   正しい例: 「○○○」(https://www.makuake.com/project/xxx)は1,234,567円を調達")
         lines.append("   間違い例: 「○○○」、URL：https://... ← この形式は使わない")
-        lines.append("7. 末尾に別途「情報源」セクションを作らない - URLは文中に含める")
+        lines.append("7. 末尾に「情報源」「Sources」「References」セクションを絶対に作らない")
+        lines.append("   URLは文中にインラインで含まれているため、末尾にまとめる必要はない")
         lines.append("=" * 50)
 
         return "\n".join(lines)

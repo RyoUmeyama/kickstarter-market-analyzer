@@ -241,7 +241,8 @@ class ReportGenerator:
 - Include URLs INLINE with product names using parentheses (do NOT use "URL:" prefix)
   Correct: "Product ABC" (https://www.makuake.com/project/xxx) raised 1,234,567 yen
   Wrong: "Product ABC", URL: https://...
-- Do NOT create a separate "Sources" or "Information Sources" section at the end"""
+- NEVER create a "Sources", "Information Sources", "情報源", or "References" section at the end
+- URLs are already inline, so listing them again at the end is redundant and prohibited"""
 
             print(f"  🤖 Calling OpenAI API with translated prompts...")
 
