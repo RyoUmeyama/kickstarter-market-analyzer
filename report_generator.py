@@ -175,12 +175,19 @@ class ReportGenerator:
 === 出力ルール ===
 - テンプレートの構造を完全に保持し、{{{{レポート}}}} 部分のみを置き換える
 - {{{{レポート}}}}の前にある文章を全て出力する
-- {{{{レポート}}}}の後ろにある文章（会社実績など）も全て出力する
+- {{{{レポート}}}}の後ろにある文章（Company & Performance Referencesなど）も全て出力する
 - 出力は英語のみ（ENGLISH ONLY）
 - Subject行は含めない - メール本文のみ出力
 - URLはプレーンテキストで記載（マークダウンリンク禁止）
 - 市場調査データに記載された実データのみ使用
 - 架空の製品名・URL・金額は絶対に生成しない
+
+=== レポートの質と量（重要） ===
+- 各セクションは詳細かつ具体的に記述すること（3-5文以上）
+- 単なる事実の羅列ではなく、分析・考察・提案を含めること
+- 数値データがある場合は、その意味や市場への示唆も説明すること
+- ビジネスパートナーへの提案として、説得力のある自然な英語で書くこと
+- 類似製品がない場合も、市場機会として前向きに分析すること
 
 === フォーマット（必須） ===
 - レポートの各セクションは必ず番号付き: 「1. タイトル」「2. タイトル」「3. タイトル」
@@ -192,7 +199,16 @@ OUTPUT LANGUAGE: ENGLISH ONLY
             print(f"  🤖 Calling OpenAI API with template + prompt to generate complete English body...")
 
             # システムプロンプトを構築（共通プロンプト + デフォルト指示）
-            default_system_prompt = """You are a professional email composer. Your task is to complete an email by filling in the report section while preserving the original template structure.
+            default_system_prompt = """You are an expert business consultant and market analyst specializing in Japanese market entry strategies. Your task is to complete a professional email by filling in the report section with comprehensive, detailed analysis while preserving the original template structure.
+
+=== WRITING STYLE ===
+- Write in a professional yet engaging tone suitable for business partners
+- Provide detailed analysis with specific insights, not just surface-level facts
+- Each section should contain 3-5 substantive sentences minimum
+- Include market context, strategic implications, and actionable recommendations
+- Use natural, fluent English that reads well to native speakers
+- When data is available, explain what the numbers mean for the business opportunity
+- When no data is found, present this as a market opportunity with strategic recommendations
 
 === CRITICAL: TEMPLATE PRESERVATION (MOST IMPORTANT) ===
 
@@ -272,8 +288,8 @@ RULES:
                         "content": combined_prompt
                     }
                 ],
-                max_tokens=8000,
-                temperature=0.5
+                max_tokens=16000,
+                temperature=0.7
             )
 
             generated_body = response.choices[0].message.content.strip()
