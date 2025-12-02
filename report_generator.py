@@ -365,6 +365,8 @@ Just output the market analysis report content that will be inserted into the em
         生成された本文をクリーンアップ
         - 件名行（Subject:）を削除
         - マークダウンリンク [text](url) をプレーンテキスト url に変換
+        - 末尾の情報源/Sources/Referencesセクションを削除
+        - URL: プレフィックスを括弧形式に変換
 
         Args:
             text (str): 生成された本文
@@ -397,6 +399,21 @@ Just output the market analysis report content that will be inserted into the em
         # マークダウンリンク [text](url) を url に変換
         # 例: [Life Support](https://lifeupjp.com) → https://lifeupjp.com
         text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'\2', text)
+
+        # 末尾の情報源/Sources/Referencesセクションを削除
+        # パターン: "情報源" または "Sources" または "References" で始まる行から末尾のURL一覧を削除
+        sources_patterns = [
+            r'\n\s*情報源\s*\n(https?://[^\s]+\n?)+$',
+            r'\n\s*Sources?\s*:?\s*\n(https?://[^\s]+\n?)+$',
+            r'\n\s*References?\s*:?\s*\n(https?://[^\s]+\n?)+$',
+            r'\n\s*Information Sources?\s*:?\s*\n(https?://[^\s]+\n?)+$',
+        ]
+        for pattern in sources_patterns:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+
+        # 「URL：」や「URL:」プレフィックスを括弧形式に変換
+        # 例: 「製品名」、URL：https://... → 「製品名」(https://...)
+        text = re.sub(r'[、,]\s*URL[：:]\s*(https?://[^\s]+)', r' (\1)', text)
 
         return text.strip()
 
