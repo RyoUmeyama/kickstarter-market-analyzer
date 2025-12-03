@@ -279,6 +279,15 @@ WRITING STYLE:
 - Show concrete success potential with realistic projections
 - Write as a professional proposal, not a generic report
 
+CRITICAL DATA RULES - MUST FOLLOW:
+1. If Kickstarter funding amount is provided in the data, you MUST cite it exactly (e.g., "Your product raised $252,364 from 1,295 backers")
+2. If Makuake similar products are provided, you MUST cite their exact names, URLs, and funding amounts
+3. NEVER write "Please refer to the Kickstarter page" or "Please check the Kickstarter page" - this is FORBIDDEN
+4. NEVER write vague statements like "For pricing information, see the page" - either cite the actual data or skip that topic
+5. If specific data is NOT provided, do NOT mention that topic at all - skip it entirely
+6. Do NOT invent or estimate numbers that are not in the provided data
+7. Only write about topics for which you have actual data
+
 CRITICAL FORMAT RULES:
 1. Write in ENGLISH ONLY - absolutely NO Japanese characters
 2. Use PLAIN TEXT only - NO markdown (no *, **, #, -, bullet points)
