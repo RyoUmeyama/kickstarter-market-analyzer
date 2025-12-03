@@ -205,6 +205,7 @@ class GoogleSheetsClient:
         - 改行を<br>に変換
         - 特殊文字をエスケープ（&, <, >）
         - URLを<a>タグでリンク化
+        - 日本語の「。」の後に改行を追加
 
         Args:
             text (str): プレーンテキスト
@@ -226,6 +227,11 @@ class GoogleSheetsClient:
         # URLパターン: http:// または https:// で始まり、空白や改行まで
         url_pattern = r'(https?://[^\s<>\"\'\)）]+)'
         text = re.sub(url_pattern, r'<a href="\1">\1</a>', text)
+
+        # 日本語テキストの場合、「。」の後に改行を追加（既に改行がある場合は除く）
+        if '。' in text:
+            # 「。」の後にスペースや改行がない場合、改行を追加
+            text = re.sub(r'。(?!\s*\n)(?!\s*$)', '。\n', text)
 
         # 改行を<br>に変換
         text = text.replace('\n', '<br>')
