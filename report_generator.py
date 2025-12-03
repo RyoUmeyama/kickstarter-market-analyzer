@@ -208,6 +208,28 @@ RULES:
                 search_results = self.market_searcher.search_similar_products(kickstarter_url, product_name)
                 market_research_data = self.market_searcher.format_for_prompt(search_results)
 
+                # デバッグ用：取得したデータを詳細に出力
+                print("\n" + "=" * 60)
+                print("DEBUG: 市場調査データの確認")
+                print("=" * 60)
+
+                ks_info = search_results.get('ks_info', {})
+                print(f"  Kickstarter調達額: {ks_info.get('funding_amount', '未取得')}")
+                print(f"  Kickstarterバッカー数: {ks_info.get('backers_count', '未取得')}")
+                print(f"  データソース: {ks_info.get('data_source', '未取得')}")
+
+                makuake = search_results.get('makuake_products', [])
+                print(f"  Makuake製品数: {len(makuake)}件")
+                for i, p in enumerate(makuake[:3], 1):
+                    print(f"    {i}. {p.get('title', 'N/A')[:30]}... URL: {p.get('url', 'N/A')}")
+
+                campfire = search_results.get('campfire_products', [])
+                print(f"  CAMPFIRE製品数: {len(campfire)}件")
+                for i, p in enumerate(campfire[:3], 1):
+                    print(f"    {i}. {p.get('title', 'N/A')[:30]}... URL: {p.get('url', 'N/A')}")
+
+                print("=" * 60 + "\n")
+
             # === 日本語プロンプトを英語に翻訳（API送信用） ===
             print(f"  🌐 Translating prompts to English...")
 
@@ -342,6 +364,14 @@ Do NOT include email greetings, signatures, or template text."""
 
             generated_report = response.choices[0].message.content.strip()
             print(f"  ✓ Report content generated via OpenAI API ({len(generated_report)} chars)")
+
+            # デバッグ用：生成されたレポートの最初の部分を出力
+            print("\n" + "=" * 60)
+            print("DEBUG: 生成されたレポート（最初の500文字）")
+            print("=" * 60)
+            print(generated_report[:500])
+            print("..." if len(generated_report) > 500 else "")
+            print("=" * 60 + "\n")
 
             # 後処理: 件名行を削除、マークダウンリンクをプレーンテキストに変換
             generated_report = self._clean_generated_body(generated_report)
