@@ -528,6 +528,145 @@ URL: {kickstarter_url}
         """Makuakeで類似製品を検索"""
         return self._search_makuake_playwright(keyword)
 
+    def _search_campfire_playwright(self, keyword):
+        """PlaywrightでCAMPFIRE検索"""
+        import urllib.parse
+        search_url = f"https://camp-fire.jp/projects/search?word={urllib.parse.quote(keyword)}"
+        print(f"     CAMPFIRE検索（Playwright）: {keyword}")
+        print(f"       URL: {search_url}")
+
+        projects = []
+        browser = self._get_browser()
+        if not browser:
+            return {"found": False, "projects": [], "search_note": "ブラウザ初期化失敗"}
+
+        page = None
+        try:
+            page = self._context.new_page()
+            page.goto(search_url, wait_until='domcontentloaded', timeout=30000)
+            page.wait_for_timeout(3000)
+
+            html = page.content()
+            soup = BeautifulSoup(html, 'html.parser')
+
+            # 海外IPブロックのチェック
+            if 'Welcome' in html and 'International' in html:
+                print(f"       ⚠️ CAMPFIRE: 海外IPからのアクセス制限")
+                return {
+                    "found": False,
+                    "projects": [],
+                    "search_note": "海外IPからのアクセス制限",
+                    "geo_restricted": True
+                }
+
+            # プロジェクトリンクを検索
+            project_links = soup.select('a[href*="/projects/"][href*="/view"]')
+            seen_urls = set()
+            print(f"       → {len(project_links)}件のリンクを発見")
+
+            for link in project_links[:15]:
+                try:
+                    href = link.get('href', '')
+                    if not href:
+                        continue
+
+                    if href.startswith('/'):
+                        project_url = f"https://camp-fire.jp{href}"
+                    elif not href.startswith('http'):
+                        continue
+                    else:
+                        project_url = href
+
+                    base_url = project_url.split('?')[0].rstrip('/')
+                    if base_url in seen_urls:
+                        continue
+                    seen_urls.add(base_url)
+
+                    full_text = link.get_text(strip=True)
+                    if not full_text or len(full_text) < 10:
+                        continue
+
+                    # 無効なタイトルを除外
+                    invalid_titles = ["プロジェクト公開の通知", "通知を受け取る", "お気に入り", "ログイン", "Welcome"]
+                    if any(invalid in full_text for invalid in invalid_titles):
+                        continue
+
+                    # 金額を抽出
+                    funding = ""
+                    amount_match = re.search(r'([\d,]+)円', full_text)
+                    if amount_match:
+                        funding = amount_match.group(1) + "円"
+
+                    # 達成率を抽出
+                    percent = 0
+                    percent_match = re.search(r'(\d+)%', full_text)
+                    if percent_match:
+                        percent = int(percent_match.group(1))
+
+                    # タイトルを抽出（不要なテキストを除去）
+                    title = full_text
+
+                    # 先頭の募集終了/FINISH/SUCCESS等を除去
+                    prefixes_to_remove = ['募集終了FINISH募集終了', '募集終了SUCCESS募集終了',
+                                         '募集終了FINISH', '募集終了SUCCESS', '募集終了',
+                                         'FINISH', 'SUCCESS']
+                    for prefix in prefixes_to_remove:
+                        if title.startswith(prefix):
+                            title = title[len(prefix):].strip()
+
+                    # 末尾のステータス/金額情報を除去（正規表現で）
+                    # パターン: FINISH現在, SUCCESS現在, FUNDED現在, 数字円, 数字人
+                    title = re.sub(r'(FINISH|SUCCESS|FUNDED|募集終了)現在[\d,]*.*$', '', title).strip()
+                    title = re.sub(r'\d{1,3}(,\d{3})*円.*$', '', title).strip()
+                    title = re.sub(r'\d+人.*$', '', title).strip()
+                    title = re.sub(r'達成率\d+%.*$', '', title).strip()
+
+                    # それでもタイトルが長すぎる場合
+                    if len(title) > 80:
+                        title = title[:80]
+
+                    if not title or len(title) < 5:
+                        continue
+
+                    print(f"         ✓ 発見: {title[:40]}...")
+                    projects.append({
+                        "name": title[:100],
+                        "url": base_url,
+                        "funding_amount": funding if funding else "非公開",
+                        "backers": 0,
+                        "percent": percent,
+                        "platform": "CAMPFIRE",
+                        "data_verified": True
+                    })
+
+                    if len(projects) >= 5:
+                        break
+
+                except Exception:
+                    continue
+
+        except PlaywrightTimeout:
+            print(f"       ⚠️ タイムアウト")
+        except Exception as e:
+            print(f"     ⚠️ CAMPFIRE検索エラー: {type(e).__name__}: {e}")
+        finally:
+            if page:
+                try:
+                    page.close()
+                except:
+                    pass
+
+        return {
+            "found": len(projects) > 0,
+            "projects": projects,
+            "search_note": f"CAMPFIREで{len(projects)}件の類似製品を発見" if projects else "該当する製品が見つかりませんでした",
+            "search_attempted": True
+        }
+
+    def search_campfire(self, keyword):
+        """CAMPFIREで類似製品を検索"""
+        return self._search_campfire_playwright(keyword)
+
     def search_similar_products(self, kickstarter_url, product_name=''):
         """
         類似製品を総合検索
@@ -546,20 +685,36 @@ URL: {kickstarter_url}
         print(f"     キーワード: {', '.join(keywords)}")
 
         all_makuake_projects = []
+        all_campfire_projects = []
 
-        # 2. 各キーワードでMakuakeを検索
+        # 2. 各キーワードでMakuakeとCAMPFIREを検索
         for keyword in keywords[:2]:
+            # Makuake検索
             makuake_results = self.search_makuake(keyword)
             if makuake_results.get('found'):
                 for p in makuake_results['projects']:
                     if not any(existing['url'] == p['url'] for existing in all_makuake_projects):
                         all_makuake_projects.append(p)
 
-        all_makuake_projects = all_makuake_projects[:5]
-        has_results = len(all_makuake_projects) > 0
+            # CAMPFIRE検索
+            campfire_results = self.search_campfire(keyword)
+            if campfire_results.get('found'):
+                for p in campfire_results['projects']:
+                    if not any(existing['url'] == p['url'] for existing in all_campfire_projects):
+                        all_campfire_projects.append(p)
 
-        if has_results:
-            summary = f"Makuakeで{len(all_makuake_projects)}件の類似製品を発見"
+        all_makuake_projects = all_makuake_projects[:5]
+        all_campfire_projects = all_campfire_projects[:5]
+        has_results = len(all_makuake_projects) > 0 or len(all_campfire_projects) > 0
+
+        summary_parts = []
+        if all_makuake_projects:
+            summary_parts.append(f"Makuake {len(all_makuake_projects)}件")
+        if all_campfire_projects:
+            summary_parts.append(f"CAMPFIRE {len(all_campfire_projects)}件")
+
+        if summary_parts:
+            summary = f"類似製品を発見: {', '.join(summary_parts)}"
         else:
             summary = "日本のクラウドファンディングで類似製品は見つかりませんでした"
 
@@ -572,6 +727,10 @@ URL: {kickstarter_url}
             "makuake": {
                 "found": len(all_makuake_projects) > 0,
                 "projects": all_makuake_projects
+            },
+            "campfire": {
+                "found": len(all_campfire_projects) > 0,
+                "projects": all_campfire_projects
             },
             "has_results": has_results,
             "summary": summary
@@ -634,7 +793,7 @@ URL: {kickstarter_url}
 
         if not search_results.get('has_results', False):
             lines.append("")
-            lines.append("調査の結果、Makuakeで類似製品は見つかりませんでした。")
+            lines.append("調査の結果、MakuakeおよびCAMPFIREで類似製品は見つかりませんでした。")
             lines.append("")
             lines.append("これは以下の可能性を示唆します：")
             lines.append("・日本市場において未開拓のカテゴリである可能性")
@@ -644,13 +803,27 @@ URL: {kickstarter_url}
             lines.append("「類似製品が見つからなかった」という事実をそのまま伝えてください。")
         else:
             lines.append(f"製品カテゴリ: {search_results.get('category', '製品')}")
-            lines.append("※以下は実際にMakuakeから取得したデータです。")
+            lines.append("※以下は実際にMakuake/CAMPFIREから取得したデータです。")
             lines.append("")
 
+            # Makuake結果
             makuake = search_results.get('makuake', {})
             if makuake.get('found', False) and makuake.get('projects'):
                 lines.append(f"■ Makuakeの類似製品（{len(makuake['projects'])}件）:")
                 for i, p in enumerate(makuake['projects'], 1):
+                    lines.append(f"  【製品{i}】")
+                    lines.append(f"    製品名: {p.get('name', '不明')}")
+                    lines.append(f"    URL: {p.get('url', '')}")
+                    lines.append(f"    資金調達額: {p.get('funding_amount', '非公開')}")
+                    if p.get('percent'):
+                        lines.append(f"    達成率: {p.get('percent')}%")
+                    lines.append("")
+
+            # CAMPFIRE結果
+            campfire = search_results.get('campfire', {})
+            if campfire.get('found', False) and campfire.get('projects'):
+                lines.append(f"■ CAMPFIREの類似製品（{len(campfire['projects'])}件）:")
+                for i, p in enumerate(campfire['projects'], 1):
                     lines.append(f"  【製品{i}】")
                     lines.append(f"    製品名: {p.get('name', '不明')}")
                     lines.append(f"    URL: {p.get('url', '')}")
@@ -670,7 +843,7 @@ URL: {kickstarter_url}
         lines.append("2. 架空の製品名、URL、金額を絶対に記載しない")
         lines.append("3. データが取得できなかった項目には言及しない")
         lines.append("4. 「Kickstarterページをご覧ください」のような曖昧な表現は禁止")
-        lines.append("5. 上記のMakuake製品のURLは必ずそのまま引用すること")
+        lines.append("5. 上記のMakuake/CAMPFIRE製品のURLは必ずそのまま引用すること")
         lines.append("")
         lines.append("■ データがない場合：")
         lines.append("- その項目についてはレポートで触れない")
