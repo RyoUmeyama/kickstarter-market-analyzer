@@ -57,36 +57,29 @@ class MarketSearcher:
         self._browser = None
         self._context = None
 
-    def _get_browser(self):
-        """Playwrightブラウザを取得（遅延初期化）"""
+    def _get_browser(self, use_proxy=False):
+        """
+        Playwrightブラウザを取得（遅延初期化）
+
+        Args:
+            use_proxy: Trueの場合、Bright Dataプロキシを使用
+        """
         if not PLAYWRIGHT_AVAILABLE:
             print("     ⚠️ Playwrightが利用できないためスキップ")
             return None
 
+        # プロキシ使用時は別のブラウザインスタンスを使用
+        if use_proxy:
+            return self._get_proxy_browser()
+
         if self._browser is None:
             try:
-                print("     Playwrightブラウザを初期化中...")
+                print("     Playwrightブラウザを初期化中（直接接続）...")
                 self._playwright = sync_playwright().start()
-
-                # Bright Data プロキシ設定を取得
-                bright_data_username = os.getenv('BRIGHT_DATA_USERNAME')
-                bright_data_password = os.getenv('BRIGHT_DATA_PASSWORD')
-
-                proxy_config = None
-                if bright_data_username and bright_data_password:
-                    proxy_config = {
-                        "server": "brd.superproxy.io:22225",
-                        "username": bright_data_username,
-                        "password": bright_data_password
-                    }
-                    print("     ✓ Bright Data プロキシを使用します（日本IP）")
-                else:
-                    print("     ⚠️ Bright Data未設定 - 直接接続を使用")
 
                 # Chromiumを使用（より自然なフィンガープリント）
                 self._browser = self._playwright.chromium.launch(
                     headless=True,
-                    proxy=proxy_config,  # Bright Data プロキシ
                     args=[
                         '--disable-blink-features=AutomationControlled',
                         '--disable-dev-shm-usage',
@@ -100,10 +93,9 @@ class MarketSearcher:
                     user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     locale='ja-JP',
                     timezone_id='Asia/Tokyo',
-                    ignore_https_errors=True if proxy_config else False,  # プロキシ使用時はSSL検証をスキップ
                 )
 
-                print("     ✓ Playwrightブラウザを初期化しました")
+                print("     ✓ Playwrightブラウザを初期化しました（直接接続）")
 
             except Exception as e:
                 print(f"     ⚠️ Playwright初期化エラー: {type(e).__name__}: {e}")
@@ -111,8 +103,63 @@ class MarketSearcher:
 
         return self._browser
 
+    def _get_proxy_browser(self):
+        """Bright Dataプロキシ付きブラウザを取得"""
+        if not hasattr(self, '_proxy_browser') or self._proxy_browser is None:
+            bright_data_username = os.getenv('BRIGHT_DATA_USERNAME')
+            bright_data_password = os.getenv('BRIGHT_DATA_PASSWORD')
+
+            if not bright_data_username or not bright_data_password:
+                print("     ⚠️ Bright Data未設定 - プロキシを使用できません")
+                return None
+
+            try:
+                print("     Playwrightブラウザを初期化中（Bright Dataプロキシ）...")
+
+                if self._playwright is None:
+                    self._playwright = sync_playwright().start()
+
+                proxy_config = {
+                    "server": "brd.superproxy.io:22225",
+                    "username": bright_data_username,
+                    "password": bright_data_password
+                }
+
+                self._proxy_browser = self._playwright.chromium.launch(
+                    headless=True,
+                    proxy=proxy_config,
+                    args=[
+                        '--disable-blink-features=AutomationControlled',
+                        '--disable-dev-shm-usage',
+                        '--no-sandbox',
+                    ]
+                )
+
+                self._proxy_context = self._proxy_browser.new_context(
+                    viewport={'width': 1920, 'height': 1080},
+                    user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    locale='ja-JP',
+                    timezone_id='Asia/Tokyo',
+                    ignore_https_errors=True,  # プロキシ使用時はSSL検証をスキップ
+                )
+
+                print("     ✓ Bright Dataプロキシブラウザを初期化しました（日本IP）")
+
+            except Exception as e:
+                print(f"     ⚠️ プロキシブラウザ初期化エラー: {type(e).__name__}: {e}")
+                self._proxy_browser = None
+
+        return self._proxy_browser
+
+    def _get_context(self, use_proxy=False):
+        """適切なブラウザコンテキストを取得"""
+        if use_proxy and hasattr(self, '_proxy_context'):
+            return self._proxy_context
+        return self._context
+
     def _close_browser(self):
         """Playwrightブラウザを終了"""
+        # 直接接続ブラウザを終了
         if self._context:
             try:
                 self._context.close()
@@ -125,6 +172,21 @@ class MarketSearcher:
             except Exception:
                 pass
             self._browser = None
+
+        # プロキシブラウザを終了
+        if hasattr(self, '_proxy_context') and self._proxy_context:
+            try:
+                self._proxy_context.close()
+            except Exception:
+                pass
+            self._proxy_context = None
+        if hasattr(self, '_proxy_browser') and self._proxy_browser:
+            try:
+                self._proxy_browser.close()
+            except Exception:
+                pass
+            self._proxy_browser = None
+
         if self._playwright:
             try:
                 self._playwright.stop()
@@ -145,12 +207,17 @@ class MarketSearcher:
                 break
         return base_url
 
-    def _fetch_kickstarter_info_playwright(self, kickstarter_url):
+    def _fetch_kickstarter_info_playwright(self, kickstarter_url, use_proxy=False):
         """
         PlaywrightでKickstarterページから製品情報を取得
+
+        Args:
+            kickstarter_url: KickstarterのURL
+            use_proxy: Trueの場合、Bright Dataプロキシを使用
         """
         base_url = self._normalize_kickstarter_url(kickstarter_url)
-        print(f"     Kickstarter製品情報を取得中（Playwright）...")
+        proxy_label = "Bright Dataプロキシ" if use_proxy else "直接接続"
+        print(f"     Kickstarter製品情報を取得中（{proxy_label}）...")
         print(f"       URL: {base_url}")
 
         result = {
@@ -168,13 +235,17 @@ class MarketSearcher:
             "source_url": ""
         }
 
-        browser = self._get_browser()
+        browser = self._get_browser(use_proxy=use_proxy)
         if not browser:
+            return result
+
+        context = self._get_context(use_proxy=use_proxy)
+        if not context:
             return result
 
         page = None
         try:
-            page = self._context.new_page()
+            page = context.new_page()
 
             # ページにアクセス
             page.goto(base_url, wait_until='domcontentloaded', timeout=30000)
@@ -243,7 +314,7 @@ class MarketSearcher:
 
             # データソースを記録
             if result['funding_amount'] or result['backers_count']:
-                result['data_source'] = 'Kickstarter (Playwright)'
+                result['data_source'] = f'Kickstarter ({proxy_label})'
                 result['source_url'] = base_url
 
         except PlaywrightTimeout:
@@ -365,23 +436,39 @@ class MarketSearcher:
     def _fetch_kickstarter_info(self, kickstarter_url):
         """
         Kickstarterページから製品情報を取得
-        優先順位：1. Playwright → 2. Kicktraq → 3. 取得失敗を正直に報告
+
+        優先順位（コスト最適化）：
+        1. 直接接続（Playwright）- 無料
+        2. Kicktraq - 無料
+        3. Bright Dataプロキシ - 有料（最後の手段）
+        4. 取得失敗を正直に報告
         """
-        # 1. まずPlaywrightで試す
-        result = self._fetch_kickstarter_info_playwright(kickstarter_url)
+        # 1. まず直接接続で試す（無料）
+        result = self._fetch_kickstarter_info_playwright(kickstarter_url, use_proxy=False)
 
         # データが取得できたかチェック
         if result.get('funding_amount') or result.get('backers_count'):
             return result
 
-        # 2. Kicktraqでフォールバック
+        # 2. Kicktraqでフォールバック（無料）
         print("     → Kicktraqにフォールバック...")
         result = self._fetch_kickstarter_info_kicktraq(kickstarter_url)
 
         if result.get('funding_amount') or result.get('backers_count'):
             return result
 
-        # 3. 両方失敗した場合は正直に報告
+        # 3. Bright Dataプロキシで最終試行（有料）
+        bright_data_username = os.getenv('BRIGHT_DATA_USERNAME')
+        bright_data_password = os.getenv('BRIGHT_DATA_PASSWORD')
+
+        if bright_data_username and bright_data_password:
+            print("     → Bright Dataプロキシで再試行（有料）...")
+            result = self._fetch_kickstarter_info_playwright(kickstarter_url, use_proxy=True)
+
+            if result.get('funding_amount') or result.get('backers_count'):
+                return result
+
+        # 4. 全て失敗した場合は正直に報告
         print("     ⚠️ Kickstarterデータの取得に失敗しました")
         result['data_source'] = 'データ取得失敗'
         result['source_url'] = self._normalize_kickstarter_url(kickstarter_url)
