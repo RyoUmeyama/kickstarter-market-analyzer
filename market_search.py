@@ -68,9 +68,25 @@ class MarketSearcher:
                 print("     Playwrightブラウザを初期化中...")
                 self._playwright = sync_playwright().start()
 
+                # Bright Data プロキシ設定を取得
+                bright_data_username = os.getenv('BRIGHT_DATA_USERNAME')
+                bright_data_password = os.getenv('BRIGHT_DATA_PASSWORD')
+
+                proxy_config = None
+                if bright_data_username and bright_data_password:
+                    proxy_config = {
+                        "server": "brd.superproxy.io:22225",
+                        "username": bright_data_username,
+                        "password": bright_data_password
+                    }
+                    print("     ✓ Bright Data プロキシを使用します（日本IP）")
+                else:
+                    print("     ⚠️ Bright Data未設定 - 直接接続を使用")
+
                 # Chromiumを使用（より自然なフィンガープリント）
                 self._browser = self._playwright.chromium.launch(
                     headless=True,
+                    proxy=proxy_config,  # Bright Data プロキシ
                     args=[
                         '--disable-blink-features=AutomationControlled',
                         '--disable-dev-shm-usage',
@@ -84,6 +100,7 @@ class MarketSearcher:
                     user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     locale='ja-JP',
                     timezone_id='Asia/Tokyo',
+                    ignore_https_errors=True if proxy_config else False,  # プロキシ使用時はSSL検証をスキップ
                 )
 
                 print("     ✓ Playwrightブラウザを初期化しました")

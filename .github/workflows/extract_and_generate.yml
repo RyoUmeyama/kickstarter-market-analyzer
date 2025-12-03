@@ -57,6 +57,8 @@ jobs:
           echo "SHEET_NAME=kickstarter" >> .env
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
           echo "MODEL=gpt-4o-mini" >> .env
+          echo "BRIGHT_DATA_USERNAME=${{ secrets.BRIGHT_DATA_USERNAME }}" >> .env
+          echo "BRIGHT_DATA_PASSWORD=${{ secrets.BRIGHT_DATA_PASSWORD }}" >> .env
 
       - name: Create credentials.json from secret
         run: |
