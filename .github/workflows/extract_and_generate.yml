@@ -20,6 +20,8 @@ on:
         default: '30'
         type: choice
         options:
+          - '2'
+          - '5'
           - '10'
           - '20'
           - '30'
