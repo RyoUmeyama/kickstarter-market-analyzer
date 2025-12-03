@@ -156,58 +156,187 @@ class MarketSearcher:
 
     def _fetch_kickstarter_info(self, kickstarter_url):
         """
-        Kickstarterページから製品情報を取得
+        Kickstarterページから製品情報を取得（Selenium使用で詳細情報も取得）
 
         Args:
             kickstarter_url (str): Kickstarter URL
 
         Returns:
-            dict: 製品情報（title, description, category）
+            dict: 製品情報（title, description, category, funding, goal, percent, backers, rewards）
         """
-        try:
-            # /creator を除去してプロジェクトページを取得
-            project_url = kickstarter_url.replace('/creator', '').split('?')[0]
-            print(f"     Kickstarter製品情報を取得中...")
+        # /creator を除去してプロジェクトページを取得
+        project_url = kickstarter_url.replace('/creator', '').split('?')[0]
+        print(f"     Kickstarter製品情報を取得中...")
 
-            response = self.session.get(project_url, timeout=15)
-            response.raise_for_status()
-            response.encoding = 'utf-8'
+        result = {
+            "title": "",
+            "description": "",
+            "category": "",
+            "funding_amount": "",
+            "goal_amount": "",
+            "percent_funded": 0,
+            "backers_count": 0,
+            "rewards": [],
+            "days_left": "",
+            "creator_name": ""
+        }
 
-            soup = BeautifulSoup(response.text, 'html.parser')
+        # まずSeleniumで詳細情報を取得
+        driver = self._get_driver()
+        if driver:
+            try:
+                print(f"       Seleniumで詳細情報を取得中...")
+                driver.get(project_url)
+                time.sleep(3)  # ページ読み込み待機
 
-            # タイトル取得
-            title = ""
-            title_elem = soup.select_one('h2.project-name, meta[property="og:title"]')
-            if title_elem:
-                if title_elem.name == 'meta':
-                    title = title_elem.get('content', '')
-                else:
-                    title = title_elem.get_text(strip=True)
+                soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-            # 説明取得
-            description = ""
-            desc_elem = soup.select_one('meta[property="og:description"], meta[name="description"]')
-            if desc_elem:
-                description = desc_elem.get('content', '')
+                # JSON-LDデータを探す（構造化データ）
+                json_ld_scripts = soup.find_all('script', type='application/ld+json')
+                for script in json_ld_scripts:
+                    try:
+                        data = json.loads(script.string)
+                        if isinstance(data, dict):
+                            if data.get('@type') == 'Product' or data.get('@type') == 'CreativeWork':
+                                result['title'] = data.get('name', result['title'])
+                                result['description'] = data.get('description', result['description'])[:500]
+                    except:
+                        pass
 
-            # カテゴリ取得
-            category = ""
-            category_elem = soup.select_one('a.category-name, span.project-category')
-            if category_elem:
-                category = category_elem.get_text(strip=True)
+                # メタタグからデータ取得
+                og_title = soup.find('meta', property='og:title')
+                if og_title:
+                    result['title'] = og_title.get('content', '').replace(' — Kickstarter', '').strip()
 
-            print(f"       タイトル: {title[:50]}..." if title else "       タイトル: 取得失敗")
-            print(f"       カテゴリ: {category}" if category else "       カテゴリ: 取得失敗")
+                og_desc = soup.find('meta', property='og:description')
+                if og_desc:
+                    result['description'] = og_desc.get('content', '')[:500]
 
-            return {
-                "title": title,
-                "description": description[:500] if description else "",
-                "category": category
-            }
+                # 資金調達額（様々なセレクタを試す）
+                # アクティブ: span.ksr-green-500, 終了: span.soft-black
+                funding_selectors = [
+                    'span.ksr-green-500',
+                    'span.soft-black',
+                    'span.ksr-green-700 span',
+                ]
+                for selector in funding_selectors:
+                    funding_elem = soup.select_one(selector)
+                    if funding_elem:
+                        funding_text = funding_elem.get_text(strip=True)
+                        # US$ 252,364 または $1,234,567 の形式を抽出
+                        amount_match = re.search(r'(?:US\$|\$|€|£|¥)\s*([\d,]+)', funding_text)
+                        if amount_match:
+                            result['funding_amount'] = funding_text.strip()
+                            print(f"       調達額: {result['funding_amount']}")
+                            break
 
-        except Exception as e:
-            print(f"     ⚠️ Kickstarter情報取得エラー: {e}")
-            return {"title": "", "description": "", "category": ""}
+                # 目標金額 - 「の総プレッジ額 (US$ 5,000 中)」から抽出
+                goal_elem = soup.select_one('span.money')
+                if goal_elem:
+                    goal_text = goal_elem.get_text(strip=True)
+                    amount_match = re.search(r'(?:US\$|\$|€|£|¥)\s*([\d,]+)', goal_text)
+                    if amount_match:
+                        result['goal_amount'] = goal_text.strip()
+                        print(f"       目標額: {result['goal_amount']}")
+
+                # 達成率を計算（調達額 / 目標額）
+                if result['funding_amount'] and result['goal_amount']:
+                    try:
+                        funding_num = int(re.search(r'([\d,]+)', result['funding_amount']).group(1).replace(',', ''))
+                        goal_num = int(re.search(r'([\d,]+)', result['goal_amount']).group(1).replace(',', ''))
+                        if goal_num > 0:
+                            result['percent_funded'] = int((funding_num / goal_num) * 100)
+                            print(f"       達成率: {result['percent_funded']}%")
+                    except:
+                        pass
+
+                # バッカー数 - 「人のバッカー」の前にある数字を探す
+                page_text = soup.get_text()
+                backers_match = re.search(r'([\d,]+)\s*(?:人のバッカー|backers?)', page_text, re.I)
+                if backers_match:
+                    result['backers_count'] = int(backers_match.group(1).replace(',', ''))
+                    print(f"       バッカー数: {result['backers_count']}人")
+
+                # カテゴリ
+                category_selectors = [
+                    'a[href*="/discover/categories/"]',
+                    'span.category-name',
+                    'a.category-name'
+                ]
+                for selector in category_selectors:
+                    category_elem = soup.select_one(selector)
+                    if category_elem:
+                        result['category'] = category_elem.get_text(strip=True)
+                        print(f"       カテゴリ: {result['category']}")
+                        break
+
+                # リワード価格帯を取得
+                reward_selectors = [
+                    'span.pledge__amount',
+                    'div[class*="reward"] span.money',
+                    'h3.pledge__amount'
+                ]
+                rewards = []
+                for selector in reward_selectors:
+                    reward_elems = soup.select(selector)
+                    for elem in reward_elems[:5]:  # 最大5つ
+                        reward_text = elem.get_text(strip=True)
+                        if reward_text and '$' in reward_text or '¥' in reward_text:
+                            rewards.append(reward_text)
+                    if rewards:
+                        break
+                result['rewards'] = rewards
+                if rewards:
+                    print(f"       リワード価格帯: {', '.join(rewards[:3])}")
+
+                # 残り日数 - 「日 で締切」の前にある数字を探す
+                days_match = re.search(r'(\d+)\s*(?:日\s*で締切|days?\s*(?:to go|left))', page_text, re.I)
+                if days_match:
+                    result['days_left'] = f"{days_match.group(1)}日"
+                    print(f"       残り: {result['days_left']}")
+
+                # クリエイター名
+                creator_selectors = [
+                    'a[data-test-id="creator-name"]',
+                    'span[class*="creator"]',
+                    'a[href*="/profile/"]'
+                ]
+                for selector in creator_selectors:
+                    creator_elem = soup.select_one(selector)
+                    if creator_elem:
+                        result['creator_name'] = creator_elem.get_text(strip=True)
+                        break
+
+                print(f"       タイトル: {result['title'][:50]}..." if result['title'] else "       タイトル: 取得中...")
+
+            except Exception as e:
+                print(f"       Selenium取得エラー: {e}")
+
+        # Seleniumで取得できなかった場合、requestsでフォールバック
+        if not result['title']:
+            try:
+                response = self.session.get(project_url, timeout=15)
+                response.raise_for_status()
+                response.encoding = 'utf-8'
+
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                # タイトル取得
+                title_elem = soup.select_one('meta[property="og:title"]')
+                if title_elem:
+                    result['title'] = title_elem.get('content', '').replace(' — Kickstarter', '').strip()
+
+                # 説明取得
+                desc_elem = soup.select_one('meta[property="og:description"], meta[name="description"]')
+                if desc_elem:
+                    result['description'] = desc_elem.get('content', '')[:500]
+
+                print(f"       タイトル（フォールバック）: {result['title'][:50]}..." if result['title'] else "       タイトル: 取得失敗")
+
+            except Exception as e:
+                print(f"     ⚠️ Kickstarter情報取得エラー: {e}")
+
+        return result
 
     def extract_product_keywords(self, kickstarter_url, product_name=''):
         """
@@ -218,14 +347,27 @@ class MarketSearcher:
             product_name (str): 製品名/メーカー名
 
         Returns:
-            dict: キーワード情報（keywords, category, filter_keywords）
+            dict: キーワード情報（keywords, category, filter_keywords, ks_info）
         """
+        # Kickstarterから製品情報を取得（常に実行）
+        ks_info = self._fetch_kickstarter_info(kickstarter_url)
+
         if not self.api_available:
-            return {"keywords": [product_name], "category": "製品", "filter_keywords": []}
+            return {"keywords": [product_name], "category": "製品", "filter_keywords": [], "ks_info": ks_info}
 
         try:
-            # Kickstarterから製品情報を取得
-            ks_info = self._fetch_kickstarter_info(kickstarter_url)
+            # 取得した情報をサマリーにする
+            funding_info = ""
+            if ks_info.get('funding_amount'):
+                funding_info = f"調達額: {ks_info['funding_amount']}"
+                if ks_info.get('goal_amount'):
+                    funding_info += f" / 目標: {ks_info['goal_amount']}"
+                if ks_info.get('percent_funded'):
+                    funding_info += f" ({ks_info['percent_funded']}%達成)"
+            if ks_info.get('backers_count'):
+                funding_info += f"\nバッカー数: {ks_info['backers_count']}人"
+            if ks_info.get('rewards'):
+                funding_info += f"\nリワード価格帯: {', '.join(ks_info['rewards'][:3])}"
 
             prompt = f"""以下のKickstarter製品について、日本のクラウドファンディング（MakuakeやCAMPFIRE）で
 類似製品を検索するための情報を提供してください。
@@ -235,6 +377,7 @@ URL: {kickstarter_url}
 製品名/メーカー: {product_name}
 タイトル: {ks_info.get('title', '不明')}
 カテゴリ: {ks_info.get('category', '不明')}
+{funding_info}
 説明: {ks_info.get('description', '不明')[:300]}
 
 【回答形式（JSON）】:
@@ -273,13 +416,14 @@ URL: {kickstarter_url}
             json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
             if json_match:
                 result = json.loads(json_match.group())
+                result['ks_info'] = ks_info  # Kickstarter情報を追加
                 print(f"     フィルタキーワード: {result.get('filter_keywords', [])}")
                 return result
-            return {"keywords": [product_name], "category": "製品", "filter_keywords": []}
+            return {"keywords": [product_name], "category": "製品", "filter_keywords": [], "ks_info": ks_info}
 
         except Exception as e:
             print(f"  ⚠️ キーワード抽出エラー: {e}")
-            return {"keywords": [product_name], "category": "製品", "filter_keywords": []}
+            return {"keywords": [product_name], "category": "製品", "filter_keywords": [], "ks_info": ks_info}
 
     def search_makuake(self, keyword):
         """
@@ -833,15 +977,16 @@ URL: {kickstarter_url}
             product_name (str): 製品名/メーカー名
 
         Returns:
-            dict: 検索結果
+            dict: 検索結果（Kickstarter製品情報含む）
         """
         print(f"  🔍 類似製品を検索中...")
 
-        # 1. 製品カテゴリとキーワードを抽出
+        # 1. 製品カテゴリとキーワードを抽出（Kickstarter情報も取得）
         keyword_info = self.extract_product_keywords(kickstarter_url, product_name)
         keywords = keyword_info.get('keywords', [product_name])
         category = keyword_info.get('category', '製品')
         filter_keywords = keyword_info.get('filter_keywords', [])
+        ks_info = keyword_info.get('ks_info', {})  # Kickstarter製品情報
 
         print(f"     カテゴリ: {category}")
         print(f"     キーワード: {', '.join(keywords)}")
@@ -872,6 +1017,7 @@ URL: {kickstarter_url}
         return {
             "category": category,
             "keywords": keywords,
+            "kickstarter_info": ks_info,  # Kickstarter製品の詳細情報
             "makuake": {
                 "found": len(all_makuake_projects) > 0,
                 "projects": all_makuake_projects
@@ -895,55 +1041,108 @@ URL: {kickstarter_url}
         Returns:
             str: プロンプトに挿入する形式のテキスト
         """
+        lines = []
+
+        # === Kickstarter製品の詳細情報 ===
+        ks_info = search_results.get('kickstarter_info', {})
+        if ks_info:
+            lines.append("=" * 50)
+            lines.append("【分析対象のKickstarter製品 - 実データ】")
+            lines.append("=" * 50)
+
+            if ks_info.get('title'):
+                lines.append(f"製品名: {ks_info['title']}")
+
+            if ks_info.get('category'):
+                lines.append(f"カテゴリ: {ks_info['category']}")
+
+            # 資金調達情報
+            if ks_info.get('funding_amount'):
+                funding_line = f"調達額: {ks_info['funding_amount']}"
+                if ks_info.get('goal_amount'):
+                    funding_line += f" / 目標: {ks_info['goal_amount']}"
+                if ks_info.get('percent_funded'):
+                    funding_line += f" ({ks_info['percent_funded']}%達成)"
+                lines.append(funding_line)
+
+            if ks_info.get('backers_count'):
+                lines.append(f"バッカー数: {ks_info['backers_count']:,}人")
+
+            if ks_info.get('rewards'):
+                lines.append(f"リワード価格帯: {', '.join(ks_info['rewards'][:5])}")
+
+            if ks_info.get('days_left'):
+                lines.append(f"キャンペーン状況: {ks_info['days_left']}")
+
+            if ks_info.get('description'):
+                lines.append(f"\n製品説明:\n{ks_info['description'][:400]}")
+
+            lines.append("")
+
+        # === 日本市場の類似製品情報 ===
         if not search_results.get('has_results', False):
-            return """
-【日本クラウドファンディング市場調査結果】
-
-調査の結果、日本のクラウドファンディングプラットフォーム（Makuake、CAMPFIRE）において、
-この製品に直接類似したキャンペーンは見つかりませんでした。
-
-これは以下のポジティブな意味を持ちます：
-・日本市場において、この製品カテゴリは未開拓である可能性が高い
-・先行者利益（First Mover Advantage）を得られる大きなチャンス
-・競合が少ないため、適切なマーケティングで市場リーダーになれる可能性
-・新規性が高く、メディアや消費者の注目を集めやすい
-
-レポートでは、類似製品が見つからなかったことを「未開拓市場への参入チャンス」として
-前向きに伝えてください。架空の製品名やURLは絶対に記載しないでください。
-"""
-
-        lines = ["【日本クラウドファンディング市場調査結果 - 検証済み実データ】\n"]
-        lines.append(f"製品カテゴリ: {search_results.get('category', '製品')}\n")
-        lines.append("※以下のデータはMakuakeウェブサイトから自動取得した実在する情報です。\n")
-
-        # Makuake結果
-        makuake = search_results.get('makuake', {})
-        if makuake.get('found', False) and makuake.get('projects'):
-            lines.append(f"■ Makuakeの類似製品（{len(makuake['projects'])}件発見）:")
-            for i, p in enumerate(makuake['projects'], 1):
-                lines.append(f"  【製品{i}】")
-                lines.append(f"    製品名: {p.get('name', '不明')}")
-                lines.append(f"    URL: {p.get('url', '')}")
-                lines.append(f"    資金調達額: {p.get('funding_amount', '非公開')}")
-                if p.get('backers'):
-                    lines.append(f"    支援者数: {p.get('backers')}人")
-                lines.append("")
+            lines.append("=" * 50)
+            lines.append("【日本クラウドファンディング市場調査結果】")
+            lines.append("=" * 50)
+            lines.append("")
+            lines.append("調査の結果、日本のクラウドファンディングプラットフォーム（Makuake、CAMPFIRE）において、")
+            lines.append("この製品に直接類似したキャンペーンは見つかりませんでした。")
+            lines.append("")
+            lines.append("これは以下のポジティブな意味を持ちます：")
+            lines.append("・日本市場において、この製品カテゴリは未開拓である可能性が高い")
+            lines.append("・先行者利益（First Mover Advantage）を得られる大きなチャンス")
+            lines.append("・競合が少ないため、適切なマーケティングで市場リーダーになれる可能性")
+            lines.append("・新規性が高く、メディアや消費者の注目を集めやすい")
+            lines.append("")
+            lines.append("レポートでは、類似製品が見つからなかったことを「未開拓市場への参入チャンス」として")
+            lines.append("前向きに伝えてください。架空の製品名やURLは絶対に記載しないでください。")
         else:
-            lines.append("■ Makuake: 類似製品は見つかりませんでした")
-            lines.append("  → これは市場が未開拓である可能性を示しています\n")
+            lines.append("=" * 50)
+            lines.append("【日本クラウドファンディング市場調査結果 - 検証済み実データ】")
+            lines.append("=" * 50)
+            lines.append(f"製品カテゴリ: {search_results.get('category', '製品')}")
+            lines.append("※以下のデータはMakuakeウェブサイトから自動取得した実在する情報です。")
+            lines.append("")
 
+            # Makuake結果
+            makuake = search_results.get('makuake', {})
+            if makuake.get('found', False) and makuake.get('projects'):
+                lines.append(f"■ Makuakeの類似製品（{len(makuake['projects'])}件発見）:")
+                for i, p in enumerate(makuake['projects'], 1):
+                    lines.append(f"  【製品{i}】")
+                    lines.append(f"    製品名: {p.get('name', '不明')}")
+                    lines.append(f"    URL: {p.get('url', '')}")
+                    lines.append(f"    資金調達額: {p.get('funding_amount', '非公開')}")
+                    if p.get('backers'):
+                        lines.append(f"    支援者数: {p.get('backers')}人")
+                    lines.append("")
+            else:
+                lines.append("■ Makuake: 類似製品は見つかりませんでした")
+                lines.append("  → これは市場が未開拓である可能性を示しています")
+                lines.append("")
+
+        # === 分析指示 ===
+        lines.append("")
         lines.append("=" * 50)
-        lines.append("【データ使用ルール - 必ず守ること】")
-        lines.append("1. 上記の製品情報のみをレポートに使用すること")
+        lines.append("【レポート作成ルール - 必ず守ること】")
+        lines.append("=" * 50)
+        lines.append("")
+        lines.append("■ Kickstarter製品の分析（必須）:")
+        lines.append("1. 上記のKickstarter製品データ（調達額、バッカー数、価格帯）を必ず引用すること")
+        lines.append("2. この製品の具体的な特徴・強みを分析すること")
+        lines.append("3. 日本市場での具体的な価格設定を提案すること（為替レート考慮）")
+        lines.append("4. バッカー数から想定される日本での支援者数を予測すること")
+        lines.append("")
+        lines.append("■ 日本市場データの使用:")
+        lines.append("1. 上記のMakuake製品情報のみをレポートに使用すること")
         lines.append("2. 製品名・URL・金額・支援者数は上記データをそのまま引用")
-        lines.append("3. 上記に記載のないデータは絶対に追加しない")
+        lines.append("3. 上記に記載のないデータは絶対に追加しない（架空データ禁止）")
         lines.append("4. 市場予測は上記データを根拠として計算すること")
-        lines.append("5. 類似製品が0件の場合は「見つからなかった」と正直に記載")
-        lines.append("6. 各製品を記載する際、製品名の直後に括弧でURLを含める（「URL：」は不要）")
-        lines.append("   正しい例: 「○○○」(https://www.makuake.com/project/xxx)は1,234,567円を調達")
-        lines.append("   間違い例: 「○○○」、URL：https://... ← この形式は使わない")
-        lines.append("7. 末尾に「情報源」「Sources」「References」セクションを絶対に作らない")
-        lines.append("   URLは文中にインラインで含まれているため、末尾にまとめる必要はない")
+        lines.append("")
+        lines.append("■ 出力形式:")
+        lines.append("1. URLは文中に自然に埋め込む（「URL：」プレフィックス不要）")
+        lines.append("2. 末尾に「情報源」「Sources」セクションを作らない")
+        lines.append("3. 架空のURL（www.example.com等）は絶対に記載しない")
         lines.append("=" * 50)
 
         return "\n".join(lines)
