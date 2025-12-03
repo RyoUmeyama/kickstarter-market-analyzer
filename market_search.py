@@ -164,9 +164,17 @@ class MarketSearcher:
         Returns:
             dict: 製品情報（title, description, category, funding, goal, percent, backers, rewards）
         """
-        # /creator を除去してプロジェクトページを取得
-        project_url = kickstarter_url.replace('/creator', '').split('?')[0]
+        # ベースのプロジェクトURLを取得（/creator, /description, /comments 等を除去）
+        base_url = kickstarter_url.split('?')[0]  # クエリパラメータを除去
+        # 末尾のパスを除去してベースURLを取得
+        for suffix in ['/creator', '/description', '/comments', '/updates', '/community', '/faqs']:
+            if base_url.endswith(suffix):
+                base_url = base_url[:-len(suffix)]
+                break
+        # /description ページにアクセス（より詳細な情報が取得できる）
+        project_url = base_url + '/description'
         print(f"     Kickstarter製品情報を取得中...")
+        print(f"       URL: {project_url}")
 
         result = {
             "title": "",
