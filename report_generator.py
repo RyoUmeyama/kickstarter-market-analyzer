@@ -215,10 +215,11 @@ RULES:
             translated_prompt = self._translate_to_english(processed_prompt)
             print(f"    ✓ Analysis instructions translated")
 
-            # 市場調査データを英訳
+            # 市場調査データは翻訳しない（URLと数値が破損するため）
+            # そのまま使用し、AIに処理させる
             if market_research_data:
-                translated_market_data = self._translate_to_english(market_research_data)
-                print(f"    ✓ Market research data translated")
+                translated_market_data = market_research_data
+                print(f"    ✓ Market research data preserved (not translated to protect URLs/numbers)")
             else:
                 translated_market_data = ""
 
@@ -240,25 +241,31 @@ RULES:
             combined_prompt = f"""[PRODUCT ANALYSIS REQUEST]
 {translated_prompt}
 
-[JAPANESE MARKET RESEARCH DATA - USE THIS REAL DATA]
+[JAPANESE MARKET RESEARCH DATA - THIS IS REAL DATA, USE IT EXACTLY]
 {translated_market_data}
 
-IMPORTANT INSTRUCTIONS:
-1. Analyze THIS SPECIFIC product based on its features, target audience, and market positioning
-2. Use the ACTUAL market research data above - cite real product names, URLs, and funding amounts
-3. Provide CONCRETE strategies tailored to this product's characteristics
-4. Calculate realistic sales projections based on similar products' performance
-5. Explain WHY this product would succeed in Japan (specific reasons, not generic)
-6. Recommend specific launch timing, pricing strategy, and marketing channels
+=== MANDATORY DATA USAGE RULES ===
 
-OUTPUT FORMAT RULES:
+YOU MUST INCLUDE THE FOLLOWING IN YOUR REPORT:
+
+1. KICKSTARTER DATA: If the data above shows "Kickstarter funding amount" and "backers", you MUST write something like:
+   "Your campaign has raised $X from Y backers on Kickstarter, demonstrating strong market validation."
+   Use the EXACT numbers from the data above. Do NOT write "please refer to Kickstarter page".
+
+2. MAKUAKE PRODUCTS: If the data above lists Makuake products with URLs, you MUST include them like:
+   "Similar products on Makuake have shown strong performance. For example, [Product Name] achieved X yen in funding. See: https://www.makuake.com/project/xxx"
+   Include the ACTUAL URLs from the data above.
+
+3. CAMPFIRE PRODUCTS: If the data above lists CAMPFIRE products with URLs, you MUST include them like:
+   "On CAMPFIRE, [Product Name] raised X yen. See: https://camp-fire.jp/projects/xxx"
+   Include the ACTUAL URLs from the data above.
+
+=== OUTPUT FORMAT RULES ===
 1. Write in ENGLISH ONLY (no Japanese characters)
 2. Use PLAIN TEXT only (no markdown: no *, #, -, bullet points, etc.)
-3. Write in natural flowing paragraphs - do NOT put each sentence on a separate line
+3. Write in natural flowing paragraphs
 4. Only use blank lines between major sections (numbered sections like 1. 2. 3.)
-5. Within each section, write continuous paragraphs without extra line breaks
-6. For product references, write naturally: "Product Name achieved X yen in funding. See: URL"
-7. Do NOT output "URL:" without an actual URL after it"""
+5. For product references, ALWAYS include the full URL from the data above"""
 
             print(f"  🤖 Calling OpenAI API with translated prompts...")
 
@@ -279,15 +286,19 @@ WRITING STYLE:
 - Show concrete success potential with realistic projections
 - Write as a professional proposal, not a generic report
 
-CRITICAL DATA RULES - MUST FOLLOW:
-1. ONLY use numbers that appear in the [JAPANESE MARKET RESEARCH DATA] section above
-2. If Kickstarter funding amount IS provided in the data, cite it EXACTLY as shown - do NOT change the numbers
-3. If Kickstarter funding amount is NOT provided or shows "データ取得失敗", do NOT mention any funding amounts at all
-4. If Makuake/CAMPFIRE products are provided with URLs, you MUST include those exact URLs
-5. NEVER write "Please refer to the Kickstarter page" - this is FORBIDDEN
-6. NEVER invent, estimate, or guess ANY numbers - if data is missing, skip that topic entirely
-7. Do NOT use placeholder numbers - there are no "example" amounts to use
-8. If the data shows the product title, use that exact title - do NOT use "KickTraq" as a product name (that is a tracking website)
+CRITICAL DATA RULES - MUST FOLLOW (VIOLATIONS WILL CAUSE REPORT REJECTION):
+1. ONLY use numbers that appear in the [JAPANESE MARKET RESEARCH DATA] section
+2. If Kickstarter funding amount IS provided (e.g., "$606,041"), you MUST cite it EXACTLY in your report
+3. If Kickstarter funding amount is NOT provided or shows "データ取得失敗", do NOT mention funding amounts
+4. If Makuake/CAMPFIRE products are provided with URLs, you MUST include those exact URLs in the report
+5. FORBIDDEN PHRASES - NEVER USE THESE:
+   - "Please refer to the Kickstarter page"
+   - "Visit Kickstarter for details"
+   - "Check the campaign page"
+   - Any phrase that avoids citing the actual data
+6. NEVER invent, estimate, or guess ANY numbers
+7. If the data shows the product title, use that exact title - do NOT use "KickTraq" as a product name
+8. Each Makuake/CAMPFIRE product mentioned MUST include its full URL (e.g., https://www.makuake.com/project/xxx)
 
 CRITICAL FORMAT RULES:
 1. Write in ENGLISH ONLY - absolutely NO Japanese characters
@@ -312,6 +323,7 @@ Do NOT include email greetings, signatures, or template text."""
             system_prompt = "\n\n".join(system_parts)
 
             # OpenAI APIを呼び出し（レポート部分のみ生成）
+            # temperature=0.3 で確定的な出力を得る（データ遵守のため）
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -325,7 +337,7 @@ Do NOT include email greetings, signatures, or template text."""
                     }
                 ],
                 max_tokens=16000,
-                temperature=0.7
+                temperature=0.3
             )
 
             generated_report = response.choices[0].message.content.strip()
