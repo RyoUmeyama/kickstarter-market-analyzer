@@ -280,13 +280,14 @@ WRITING STYLE:
 - Write as a professional proposal, not a generic report
 
 CRITICAL DATA RULES - MUST FOLLOW:
-1. If Kickstarter funding amount is provided in the data, you MUST cite it exactly (e.g., "Your product raised $252,364 from 1,295 backers")
-2. If Makuake similar products are provided, you MUST cite their exact names, URLs, and funding amounts
-3. NEVER write "Please refer to the Kickstarter page" or "Please check the Kickstarter page" - this is FORBIDDEN
-4. NEVER write vague statements like "For pricing information, see the page" - either cite the actual data or skip that topic
-5. If specific data is NOT provided, do NOT mention that topic at all - skip it entirely
-6. Do NOT invent or estimate numbers that are not in the provided data
-7. Only write about topics for which you have actual data
+1. ONLY use numbers that appear in the [JAPANESE MARKET RESEARCH DATA] section above
+2. If Kickstarter funding amount IS provided in the data, cite it EXACTLY as shown - do NOT change the numbers
+3. If Kickstarter funding amount is NOT provided or shows "データ取得失敗", do NOT mention any funding amounts at all
+4. If Makuake/CAMPFIRE products are provided with URLs, you MUST include those exact URLs
+5. NEVER write "Please refer to the Kickstarter page" - this is FORBIDDEN
+6. NEVER invent, estimate, or guess ANY numbers - if data is missing, skip that topic entirely
+7. Do NOT use placeholder numbers - there are no "example" amounts to use
+8. If the data shows the product title, use that exact title - do NOT use "KickTraq" as a product name (that is a tracking website)
 
 CRITICAL FORMAT RULES:
 1. Write in ENGLISH ONLY - absolutely NO Japanese characters

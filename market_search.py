@@ -279,11 +279,30 @@ class MarketSearcher:
             soup = BeautifulSoup(response.text, 'html.parser')
             page_text = soup.get_text()
 
-            # タイトル
-            title_elem = soup.select_one('h1.project-title, h1')
+            # Kicktraqでまだインデックスされていない場合をチェック
+            if 'We should have something for you soon' in page_text or 'magical ninja-gnomes' in page_text:
+                print(f"       ⚠️ Kicktraq: この製品はまだインデックスされていません")
+                return result
+
+            # タイトル（Kicktraqのページ構造に合わせて取得）
+            # 重要: "KickTraq"というサイト名ではなく、製品タイトルを取得する
+            title_elem = soup.select_one('h1.project-title')
             if title_elem:
-                result['title'] = title_elem.get_text(strip=True)
-                print(f"       タイトル: {result['title'][:50]}...")
+                title = title_elem.get_text(strip=True)
+                # "KickTraq"を含む場合は無効
+                if 'kicktraq' not in title.lower():
+                    result['title'] = title
+                    print(f"       タイトル: {result['title'][:50]}...")
+
+            # タイトルが取得できなかった場合、metaタグから取得を試みる
+            if not result['title']:
+                og_title = soup.find('meta', property='og:title')
+                if og_title:
+                    title = og_title.get('content', '')
+                    # "KickTraq"や"Kicktraq"を含まない場合のみ使用
+                    if title and 'kicktraq' not in title.lower():
+                        result['title'] = title
+                        print(f"       タイトル(meta): {result['title'][:50]}...")
 
             # 調達額を探す（Kicktraqのフォーマット）
             # "pledged of $X goal" パターン
