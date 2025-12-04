@@ -777,25 +777,32 @@ Write in English only. No markdown formatting."""
         """
         import re
 
-        # https://が欠落しているURLを修正
+        # https://が欠落しているURLを修正（スペースや行頭の後）
         # kickstarter.com → https://www.kickstarter.com
-        text = re.sub(r'(?<![/:])(?<![a-zA-Z])kickstarter\.com', r'https://www.kickstarter.com', text)
+        text = re.sub(r'(?<=\s)kickstarter\.com', r'https://www.kickstarter.com', text)
+        text = re.sub(r'^kickstarter\.com', r'https://www.kickstarter.com', text, flags=re.MULTILINE)
         # www.kickstarter.com → https://www.kickstarter.com
-        text = re.sub(r'(?<![/:])www\.kickstarter\.com', r'https://www.kickstarter.com', text)
+        text = re.sub(r'(?<=\s)www\.kickstarter\.com', r'https://www.kickstarter.com', text)
+        text = re.sub(r'^www\.kickstarter\.com', r'https://www.kickstarter.com', text, flags=re.MULTILINE)
 
         # makuake.com → https://www.makuake.com
-        text = re.sub(r'(?<![/:])(?<![a-zA-Z])makuake\.com', r'https://www.makuake.com', text)
-        text = re.sub(r'(?<![/:])www\.makuake\.com', r'https://www.makuake.com', text)
+        text = re.sub(r'(?<=\s)makuake\.com', r'https://www.makuake.com', text)
+        text = re.sub(r'^makuake\.com', r'https://www.makuake.com', text, flags=re.MULTILINE)
+        text = re.sub(r'(?<=\s)www\.makuake\.com', r'https://www.makuake.com', text)
+        text = re.sub(r'^www\.makuake\.com', r'https://www.makuake.com', text, flags=re.MULTILINE)
 
         # camp-fire.jp → https://camp-fire.jp
-        text = re.sub(r'(?<![/:])(?<![a-zA-Z])camp-fire\.jp', r'https://camp-fire.jp', text)
+        text = re.sub(r'(?<=\s)camp-fire\.jp', r'https://camp-fire.jp', text)
+        text = re.sub(r'^camp-fire\.jp', r'https://camp-fire.jp', text, flags=re.MULTILINE)
 
         # 重複したhttps://を修正
         text = re.sub(r'https://https://', r'https://', text)
         text = re.sub(r'https://www\.https://', r'https://', text)
 
+        # URLの末尾のピリオドを削除（文末の場合）
+        text = re.sub(r'(https://[^\s<>"]+)\.(?=\s|$)', r'\1', text)
+
         # URLの末尾に余計な文字が付いている場合を修正
-        # 例: https://www.makuake.com/project/xxx, demonstrating → https://www.makuake.com/project/xxx
         text = re.sub(r'(https://[^\s<>"]+?)(,\s*(?:demonstrating|indicating|showing|which))', r'\1\2', text)
 
         return text
