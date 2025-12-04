@@ -357,16 +357,21 @@ BASIC OUTPUT RULES:
             refined_report = self._refine_report(generated_report)
             print(f"  ✓ Report refined ({len(refined_report)} chars)")
 
+            # 3段階目: 品質検証と修正
+            print(f"  🔄 Validating and fixing report quality...")
+            validated_report = self._validate_and_fix_report(refined_report, translated_market_data)
+            print(f"  ✓ Report validated ({len(validated_report)} chars)")
+
             # デバッグ用：生成されたレポートの最初の部分を出力
             print("\n" + "=" * 60)
             print("DEBUG: 生成されたレポート（最初の500文字）")
             print("=" * 60)
-            print(refined_report[:500])
-            print("..." if len(refined_report) > 500 else "")
+            print(validated_report[:500])
+            print("..." if len(validated_report) > 500 else "")
             print("=" * 60 + "\n")
 
             # 後処理: 件名行を削除、マークダウンリンクをプレーンテキストに変換
-            generated_report = self._clean_generated_body(refined_report)
+            generated_report = self._clean_generated_body(validated_report)
 
             # テンプレートの前半 + 生成されたレポート + テンプレートの後半を結合
             # 各部分の間に適切な改行を追加
@@ -628,6 +633,172 @@ Output the edited report only, no explanations."""
         except Exception as e:
             print(f"  ⚠️ Refinement failed, using original: {e}")
             return report
+
+    def _validate_and_fix_report(self, report, market_data):
+        """
+        レポートの品質を検証し、問題があれば修正
+
+        Args:
+            report (str): 生成されたレポート
+            market_data (str): 市場調査データ
+
+        Returns:
+            str: 検証・修正されたレポート
+        """
+        if not self.api_available or not report:
+            return report
+
+        import re
+
+        print(f"  🔍 Validating report quality...")
+
+        # 問題点を検出
+        issues = []
+
+        # 1. URL形式の問題を検出
+        # https://が欠落しているURL
+        broken_urls = re.findall(r'(?<![/:])((?:www\.)?(?:kickstarter\.com|makuake\.com|camp-fire\.jp)[^\s<>"]*)', report)
+        if broken_urls:
+            issues.append(f"Broken URLs found (missing https://): {broken_urls[:3]}")
+
+        # 2. 「No data available」が不適切なセクションにあるか検出
+        # 分析・考察セクション（データ不要）で「No data available」は不適切
+        analysis_sections = [
+            (r'7\.\s*(?:Challenges|課題)[^:]*:\s*\n?\s*No data available', 'Section 7 (Challenges) should have analysis, not "No data available"'),
+            (r'10\.\s*(?:Potential|可能性)[^:]*:\s*\n?\s*No data available', 'Section 10 (Potential) should have analysis, not "No data available"'),
+            (r'13\.\s*(?:Potential|可能性)[^:]*:\s*\n?\s*No data available', 'Section 13 (Potential for Wholesale) should have analysis'),
+            (r'14\.\s*(?:Necessity|必要性)[^:]*Exclusive[^:]*:\s*\n?\s*No data available', 'Section 14 (Exclusive Sales) should explain the concept'),
+            (r'15\.\s*(?:Necessity|必要性)[^:]*PSE[^:]*:\s*\n?\s*No data available', 'Section 15 (PSE) should explain certification requirements'),
+        ]
+
+        for pattern, issue_desc in analysis_sections:
+            if re.search(pattern, report, re.IGNORECASE):
+                issues.append(issue_desc)
+
+        # 3. セクション内容が極端に短い（3文未満）
+        sections = re.split(r'\n\d+\.\s+', report)
+        for i, section in enumerate(sections[1:], 1):  # 最初の空要素をスキップ
+            sentences = [s.strip() for s in re.split(r'[.!?。！？]', section) if s.strip() and len(s.strip()) > 10]
+            if len(sentences) < 2 and 'No data available' not in section:
+                issues.append(f"Section {i} is too short (less than 2 sentences)")
+
+        if not issues:
+            print(f"  ✓ Report validation passed")
+            # URLの修正だけ行う
+            report = self._fix_urls(report)
+            return report
+
+        print(f"  ⚠️ Found {len(issues)} issues, requesting fix...")
+        for issue in issues[:5]:
+            print(f"    - {issue}")
+
+        # 問題を修正するためのAPI呼び出し
+        try:
+            fix_prompt = f"""You are reviewing a market analysis report that has quality issues.
+
+CURRENT REPORT:
+{report}
+
+MARKET RESEARCH DATA AVAILABLE:
+{market_data}
+
+ISSUES FOUND:
+{chr(10).join(f'- {issue}' for issue in issues)}
+
+=== FIX INSTRUCTIONS ===
+
+1. FOR ANALYSIS/STRATEGY SECTIONS (7, 10, 13, 14, 15):
+   These sections require ANALYSIS and EXPLANATION, not just data.
+   - Section 7 (Challenges): Analyze potential challenges in the Japanese market
+   - Section 10 (E-commerce Potential): Explain factors that could lead to success
+   - Section 13 (Wholesale Potential): Explain how to approach Japanese retailers
+   - Section 14 (Exclusive Sales): Explain why exclusive agreements matter in Japan
+   - Section 15 (PSE Certification): Explain PSE requirements for this product category
+
+   DO NOT write "No data available" for these sections.
+   Instead, provide thoughtful analysis based on the product type and Japanese market knowledge.
+
+2. FOR DATA-DEPENDENT SECTIONS (5, 6, 8, 9, 11, 12):
+   If no data is available, it's OK to say "Currently no data available."
+   But if data exists in MARKET RESEARCH DATA, use it with URLs.
+
+3. SHORT SECTIONS:
+   Each section should have at least 3-5 sentences of meaningful content.
+
+4. URL FORMAT:
+   All URLs must start with https://
+   Fix any URLs that are missing the protocol.
+
+5. CONSISTENCY:
+   Both products should have the same level of detail and quality.
+   If one product has detailed analysis, the other should too.
+
+=== OUTPUT ===
+Output the COMPLETE fixed report. Keep all section numbers and structure intact.
+Write in English only. No markdown formatting."""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a quality assurance editor for business reports. Fix the identified issues while maintaining data integrity."
+                    },
+                    {
+                        "role": "user",
+                        "content": fix_prompt
+                    }
+                ],
+                max_tokens=16000,
+                temperature=0.3
+            )
+
+            fixed_report = response.choices[0].message.content.strip()
+            print(f"  ✓ Report issues fixed ({len(fixed_report)} chars)")
+
+            # URL形式の最終修正
+            fixed_report = self._fix_urls(fixed_report)
+
+            return fixed_report
+
+        except Exception as e:
+            print(f"  ⚠️ Fix failed, using original with URL fixes: {e}")
+            return self._fix_urls(report)
+
+    def _fix_urls(self, text):
+        """
+        URLの形式を修正
+
+        Args:
+            text (str): テキスト
+
+        Returns:
+            str: URL修正後のテキスト
+        """
+        import re
+
+        # https://が欠落しているURLを修正
+        # kickstarter.com → https://www.kickstarter.com
+        text = re.sub(r'(?<![/:])(?<![a-zA-Z])kickstarter\.com', r'https://www.kickstarter.com', text)
+        # www.kickstarter.com → https://www.kickstarter.com
+        text = re.sub(r'(?<![/:])www\.kickstarter\.com', r'https://www.kickstarter.com', text)
+
+        # makuake.com → https://www.makuake.com
+        text = re.sub(r'(?<![/:])(?<![a-zA-Z])makuake\.com', r'https://www.makuake.com', text)
+        text = re.sub(r'(?<![/:])www\.makuake\.com', r'https://www.makuake.com', text)
+
+        # camp-fire.jp → https://camp-fire.jp
+        text = re.sub(r'(?<![/:])(?<![a-zA-Z])camp-fire\.jp', r'https://camp-fire.jp', text)
+
+        # 重複したhttps://を修正
+        text = re.sub(r'https://https://', r'https://', text)
+        text = re.sub(r'https://www\.https://', r'https://', text)
+
+        # URLの末尾に余計な文字が付いている場合を修正
+        # 例: https://www.makuake.com/project/xxx, demonstrating → https://www.makuake.com/project/xxx
+        text = re.sub(r'(https://[^\s<>"]+?)(,\s*(?:demonstrating|indicating|showing|which))', r'\1\2', text)
+
+        return text
 
     def _replace_placeholders(self, text, kickstarter_url, product_name):
         """
