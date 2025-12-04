@@ -651,21 +651,26 @@ URL: {kickstarter_url}
         """Makuakeで類似製品を検索"""
         return self._search_makuake_playwright(keyword)
 
-    def _search_campfire_playwright(self, keyword):
+    def _search_campfire_playwright(self, keyword, use_proxy=False):
         """PlaywrightでCAMPFIRE検索"""
         import urllib.parse
         search_url = f"https://camp-fire.jp/projects/search?word={urllib.parse.quote(keyword)}"
-        print(f"     CAMPFIRE検索（Playwright）: {keyword}")
+        proxy_label = "Bright Dataプロキシ" if use_proxy else "直接接続"
+        print(f"     CAMPFIRE検索（Playwright - {proxy_label}）: {keyword}")
         print(f"       URL: {search_url}")
 
         projects = []
-        browser = self._get_browser()
+        browser = self._get_browser(use_proxy=use_proxy)
         if not browser:
             return {"found": False, "projects": [], "search_note": "ブラウザ初期化失敗"}
 
+        context = self._get_context(use_proxy=use_proxy)
+        if not context:
+            return {"found": False, "projects": [], "search_note": "コンテキスト初期化失敗"}
+
         page = None
         try:
-            page = self._context.new_page()
+            page = context.new_page()
             page.goto(search_url, wait_until='domcontentloaded', timeout=30000)
             page.wait_for_timeout(3000)
 
@@ -675,6 +680,18 @@ URL: {kickstarter_url}
             # 海外IPブロックのチェック
             if 'Welcome' in html and 'International' in html:
                 print(f"       ⚠️ CAMPFIRE: 海外IPからのアクセス制限")
+                if page:
+                    try:
+                        page.close()
+                    except:
+                        pass
+                # プロキシ未使用時はプロキシで再試行
+                if not use_proxy:
+                    bright_data_username = os.getenv('BRIGHT_DATA_USERNAME')
+                    bright_data_password = os.getenv('BRIGHT_DATA_PASSWORD')
+                    if bright_data_username and bright_data_password:
+                        print(f"       → Bright Dataプロキシで再試行...")
+                        return self._search_campfire_playwright(keyword, use_proxy=True)
                 return {
                     "found": False,
                     "projects": [],
