@@ -153,8 +153,12 @@ class MarketSearcher:
 
     def _get_context(self, use_proxy=False):
         """適切なブラウザコンテキストを取得"""
-        if use_proxy and hasattr(self, '_proxy_context'):
-            return self._proxy_context
+        if use_proxy:
+            ctx = getattr(self, '_proxy_context', None)
+            if ctx:
+                return ctx
+            print(f"     ⚠️ プロキシコンテキストがありません")
+            return None
         return self._context
 
     def _close_browser(self):
@@ -237,15 +241,18 @@ class MarketSearcher:
 
         browser = self._get_browser(use_proxy=use_proxy)
         if not browser:
+            print(f"       ⚠️ ブラウザの取得に失敗しました")
             return result
 
         context = self._get_context(use_proxy=use_proxy)
         if not context:
+            print(f"       ⚠️ コンテキストの取得に失敗しました")
             return result
 
         page = None
         try:
             page = context.new_page()
+            print(f"       ページを作成しました")
 
             # ページにアクセス
             page.goto(base_url, wait_until='domcontentloaded', timeout=60000)
