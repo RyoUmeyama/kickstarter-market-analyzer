@@ -437,11 +437,10 @@ class MarketSearcher:
         """
         Kickstarterページから製品情報を取得
 
-        優先順位（コスト最適化）：
+        優先順位：
         1. 直接接続（Playwright）- 無料
-        2. Kicktraq - 無料
-        3. Bright Dataプロキシ - 有料（最後の手段）
-        4. 取得失敗を正直に報告
+        2. Bright Dataプロキシ - 有料
+        3. 取得失敗を正直に報告
         """
         # 1. まず直接接続で試す（無料）
         result = self._fetch_kickstarter_info_playwright(kickstarter_url, use_proxy=False)
@@ -450,25 +449,18 @@ class MarketSearcher:
         if result.get('funding_amount') or result.get('backers_count'):
             return result
 
-        # 2. Kicktraqでフォールバック（無料）
-        print("     → Kicktraqにフォールバック...")
-        result = self._fetch_kickstarter_info_kicktraq(kickstarter_url)
-
-        if result.get('funding_amount') or result.get('backers_count'):
-            return result
-
-        # 3. Bright Dataプロキシで最終試行（有料）
+        # 2. Bright Dataプロキシで再試行（有料）
         bright_data_username = os.getenv('BRIGHT_DATA_USERNAME')
         bright_data_password = os.getenv('BRIGHT_DATA_PASSWORD')
 
         if bright_data_username and bright_data_password:
-            print("     → Bright Dataプロキシで再試行（有料）...")
+            print("     → Bright Dataプロキシで再試行...")
             result = self._fetch_kickstarter_info_playwright(kickstarter_url, use_proxy=True)
 
             if result.get('funding_amount') or result.get('backers_count'):
                 return result
 
-        # 4. 全て失敗した場合は正直に報告
+        # 3. 全て失敗した場合は正直に報告
         print("     ⚠️ Kickstarterデータの取得に失敗しました")
         result['data_source'] = 'データ取得失敗'
         result['source_url'] = self._normalize_kickstarter_url(kickstarter_url)
