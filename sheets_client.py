@@ -505,6 +505,52 @@ class GoogleSheetsClient:
             print(f'⚠️  出力形式ルールの読み込みエラー: {err}')
             return ''
 
+    def get_ai_system_prompt(self):
+        """
+        設定シートからAIシステムプロンプト（人格設定・データルール）を読み取る
+
+        Returns:
+            str: AIシステムプロンプト（J2セルの内容）
+                 設定シートが存在しない場合やエラー時は空文字列を返す
+        """
+        try:
+            rows = self.read_rows(sheet_name='設定', column_range='J2:J2')
+
+            if rows and len(rows) > 0 and len(rows[0]) > 0:
+                ai_system_prompt = rows[0][0]
+                print(f'✓ AIシステムプロンプトを読み込みました（{len(ai_system_prompt)}文字）')
+                return ai_system_prompt
+            else:
+                print('⚠️  設定シートにAIシステムプロンプトが設定されていません（デフォルト使用）')
+                return ''
+
+        except HttpError as err:
+            print(f'⚠️  AIシステムプロンプトの読み込みエラー: {err}')
+            return ''
+
+    def get_data_rules_prompt(self):
+        """
+        設定シートからデータ取り扱いルール（捏造禁止ルール）を読み取る
+
+        Returns:
+            str: データルールプロンプト（K2セルの内容）
+                 設定シートが存在しない場合やエラー時は空文字列を返す
+        """
+        try:
+            rows = self.read_rows(sheet_name='設定', column_range='K2:K2')
+
+            if rows and len(rows) > 0 and len(rows[0]) > 0:
+                data_rules = rows[0][0]
+                print(f'✓ データルールを読み込みました（{len(data_rules)}文字）')
+                return data_rules
+            else:
+                print('⚠️  設定シートにデータルールが設定されていません（デフォルト使用）')
+                return ''
+
+        except HttpError as err:
+            print(f'⚠️  データルールの読み込みエラー: {err}')
+            return ''
+
     def get_unprocessed_rows(self):
         """
         未処理の行を取得（H列（jp_body）が空、または短い文字列のみの行）

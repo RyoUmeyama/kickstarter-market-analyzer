@@ -55,6 +55,8 @@ def main():
     system_settings = sheets_client.get_system_settings()
     translation_rules = sheets_client.get_translation_rules()
     output_format_rules = sheets_client.get_output_format_rules()
+    ai_system_prompt = sheets_client.get_ai_system_prompt()
+    data_rules_prompt = sheets_client.get_data_rules_prompt()
     print()
 
     # 未処理の行を取得
@@ -100,7 +102,9 @@ def main():
                 common_prompt=common_prompt,
                 system_settings=system_settings,
                 translation_rules=translation_rules,
-                output_format_rules=output_format_rules
+                output_format_rules=output_format_rules,
+                ai_system_prompt=ai_system_prompt,
+                data_rules_prompt=data_rules_prompt
             )
 
             # Google Sheetsに書き込み

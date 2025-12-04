@@ -79,7 +79,7 @@ RULES:
             print(f"  ⚠️ Translation failed, using original text: {e}")
             return text
 
-    def generate_report(self, template, kickstarter_url, product_name='', common_prompt='', system_settings='', translation_rules='', output_format_rules=''):
+    def generate_report(self, template, kickstarter_url, product_name='', common_prompt='', system_settings='', translation_rules='', output_format_rules='', ai_system_prompt='', data_rules_prompt=''):
         """
         テンプレートに基づいてレポートを生成
 
@@ -97,6 +97,8 @@ RULES:
             system_settings (str, optional): システム設定（設定シートG2から読み込み）
             translation_rules (str, optional): 翻訳ルール（設定シートH2から読み込み）
             output_format_rules (str, optional): 出力形式ルール（設定シートI2から読み込み）
+            ai_system_prompt (str, optional): AIシステムプロンプト（設定シートJ2から読み込み）
+            data_rules_prompt (str, optional): データルール（設定シートK2から読み込み）
 
         Returns:
             dict: 生成されたレポート
@@ -104,6 +106,9 @@ RULES:
         # 翻訳ルールを保存（_translate_to_english で使用）
         self._translation_rules = translation_rules
         self._output_format_rules = output_format_rules
+        # AIプロンプトを保存（_generate_from_prompt で使用）
+        self._ai_system_prompt = ai_system_prompt
+        self._data_rules_prompt = data_rules_prompt
         # 件名のプレースホルダーを置換（GOOGLETRANSLATE関数の結果がそのまま入っている）
         en_subject = self._replace_placeholders(
             template['en_subject'],
@@ -265,36 +270,58 @@ RULES:
             combined_prompt = f"""[PRODUCT ANALYSIS REQUEST]
 {translated_prompt}
 
-[JAPANESE MARKET RESEARCH DATA - THIS IS REAL DATA, USE IT EXACTLY]
+[JAPANESE MARKET RESEARCH DATA - THIS IS THE ONLY SOURCE OF TRUTH]
 {translated_market_data}
 
-=== MANDATORY DATA USAGE RULES ===
+=== CRITICAL: DATA INTEGRITY RULES ===
 
-YOU MUST INCLUDE THE FOLLOWING IN YOUR REPORT:
+**ABSOLUTE RULE: ONLY USE NUMBERS FROM THE DATA ABOVE**
 
-1. KICKSTARTER DATA: If the data above shows "Kickstarter funding amount" and "backers", you MUST write something like:
-   "Your campaign has raised $X from Y backers on Kickstarter, demonstrating strong market validation."
-   Use the EXACT numbers from the data above. Do NOT write "please refer to Kickstarter page".
+The market research data above contains REAL numbers retrieved from actual websites.
+You MUST use these EXACT numbers - do not round, estimate, or convert them.
 
-2. MAKUAKE PRODUCTS: If the data above lists Makuake products with URLs, you MUST include them like:
-   "Similar products on Makuake have shown strong performance. For example, [Product Name] achieved X yen in funding. See: https://www.makuake.com/project/xxx"
-   Include the ACTUAL URLs from the data above.
+1. KICKSTARTER DATA:
+   - Look for "Kickstarter funding amount:" and "Kickstarter backers:" in the data above
+   - If it says "$606,041" - write exactly "$606,041", NOT "5,000,000 yen" or "approximately 600,000 dollars"
+   - If it says "2,903 backers" - write exactly "2,903 backers"
+   - Do NOT convert dollars to yen unless the original data is in yen
+   - If no Kickstarter data is shown, write: "Kickstarter campaign data was not available at the time of this report."
 
-3. CAMPFIRE PRODUCTS: If the data above lists CAMPFIRE products with URLs, you MUST include them like:
-   "On CAMPFIRE, [Product Name] raised X yen. See: https://camp-fire.jp/projects/xxx"
-   Include the ACTUAL URLs from the data above.
+2. MAKUAKE/CAMPFIRE DATA:
+   - ONLY mention products that appear in the data above with their FULL URLs
+   - If a funding amount is shown (e.g., "4,629,102円"), use that EXACT number WITH the URL
+   - If no funding amount is shown, do NOT guess - just mention the product exists with its URL
+
+3. FORBIDDEN - THESE WILL CAUSE REPORT REJECTION:
+   - Converting currencies (e.g., turning "$606,041" into "about 90 million yen")
+   - Inventing prices like "15,000 yen" or "starting at 15,000 yen"
+   - Made-up funding totals like "5,000,000 yen" or "up to 10,000,000 yen"
+   - Any number that does NOT appear in the market research data above
+   - Generic phrases like "products in this category typically sell for X yen"
 
 === OUTPUT FORMAT RULES ===
 1. Write in ENGLISH ONLY (no Japanese characters)
 2. Use PLAIN TEXT only (no markdown: no *, #, -, bullet points, etc.)
 3. Write in natural flowing paragraphs
 4. Only use blank lines between major sections (numbered sections like 1. 2. 3.)
-5. For product references, ALWAYS include the full URL from the data above"""
+5. For product references, ALWAYS include the full URL from the data above
+6. After each section title, add a line break before the content"""
 
             print(f"  🤖 Calling OpenAI API with translated prompts...")
 
             # システムプロンプトを構築
-            base_system_prompt = """You are Koki Oshima, a veteran Japanese market entry strategist who has personally launched 50+ international products in Japan. You've worked with brands like Anker, Peak Design, and dozens of Kickstarter creators. You write like a seasoned professional who has seen what works and what fails.
+            # スプレッドシートからAIシステムプロンプト（J2）が設定されていればそれを使用
+            # 設定されていなければデフォルトを使用
+            ai_system_prompt = getattr(self, '_ai_system_prompt', '') or ''
+            data_rules_prompt = getattr(self, '_data_rules_prompt', '') or ''
+
+            if ai_system_prompt.strip():
+                # スプレッドシートからのプロンプトを英訳して使用
+                print(f"  📋 Using AI system prompt from spreadsheet ({len(ai_system_prompt)} chars)")
+                base_system_prompt = self._translate_to_english(ai_system_prompt)
+            else:
+                # デフォルトのシステムプロンプト（AIの人格設定）
+                base_system_prompt = """You are Koki Oshima, a veteran Japanese market entry strategist who has personally launched 50+ international products in Japan. You've worked with brands like Anker, Peak Design, and dozens of Kickstarter creators. You write like a seasoned professional who has seen what works and what fails.
 
 YOUR PERSONA:
 - You speak from direct experience, not theory
@@ -308,67 +335,15 @@ WRITING VOICE - SOUND LIKE A REAL CONSULTANT:
 - Be direct and confident, not hedging with "could", "might", "may"
 - Point out specific challenges, not just opportunities
 - Compare to SPECIFIC similar products with real numbers
-- Give concrete recommendations: "Price it at X yen" not "consider competitive pricing"
 
 ABSOLUTELY FORBIDDEN - These make you sound like AI:
 - "aligns with", "resonates with", "caters to"
 - "leverage", "utilize", "capitalize on"
 - "robust", "comprehensive", "strategic"
 - "cutting-edge", "state-of-the-art", "innovative", "advanced technology"
-- "eco-friendly", "user-friendly", "sustainable" (unless specific evidence)
-- "significant opportunity", "strong potential", "favorable market"
-- "increasingly seeking", "growing demand", "rising trend"
-- "well-positioned", "competitive landscape", "market validation"
 - Starting sentences with "Additionally", "Furthermore", "Moreover", "Lastly"
-- Empty phrases like "will depend on effective strategies"
-- Describing what you WILL discuss instead of actually discussing it
 - "Company & Performance References" (this is template text, never include it)
 - Any Japanese text like "宜しくお願い致します" (this is template, never include)
-
-INSTEAD, WRITE LIKE THIS:
-- "This product faces a crowded market - there are already 12 similar items on Amazon Japan"
-- "The $606,041 Kickstarter result puts you in the top 5% of tech campaigns"
-- "Duovox raised 4.6M yen on Makuake with a similar night vision angle - you can beat that"
-- "Japanese consumers will pay premium for this, but only if you nail the unboxing experience"
-- "Skip Rakuten initially - Amazon Japan gives you 80% of the market with half the setup headache"
-
-=== CRITICAL DATA RULES - ABSOLUTELY NO FABRICATION ===
-
-1. ONLY USE DATA FROM THE MARKET RESEARCH PROVIDED:
-   - Use EXACT numbers from the market research data - no rounding, no estimating
-   - Every Makuake/CAMPFIRE product mentioned MUST include its full URL
-   - If data says "$606,041" and "2,903 backers" - use those exact figures
-
-2. MANDATORY: EVERY NUMBER NEEDS A SOURCE URL
-   - When you mention ANY specific amount (yen, dollars, percentages), you MUST include the source URL
-   - Example: "Duovox Ultra Pro raised 4,629,102 yen on Makuake. See: https://www.makuake.com/project/duovox_ultrapro"
-   - If you cannot provide a URL for a number, DO NOT include that number
-
-3. IF DATA IS NOT IN THE MARKET RESEARCH, DO NOT MAKE IT UP:
-   - If no Kickstarter funding amount is provided, write: "Kickstarter funding data was not available at the time of this report."
-   - If no EC sales data is provided, write: "No EC sales data is currently available for this product in Japan."
-   - If no retail sales data is provided, write: "No retail sales data is currently available."
-   - NEVER invent numbers like "up to 15,000,000 yen" or "between 3,000,000 and 7,000,000 yen" or "approximately 5,000,000 yen"
-
-4. FOR SIMILAR PRODUCTS ON MAKUAKE/CAMPFIRE:
-   - ONLY mention products that appear in the market research data with their URLs
-   - If a funding amount is shown in the data (e.g., "4,629,102円"), include it WITH the URL
-   - If no funding amount is shown in the data, do NOT guess or estimate - just mention the product exists
-   - ALWAYS include the full URL for every product mentioned
-
-5. SECTIONS WITH NO DATA:
-   - If a section has no relevant data, acknowledge it honestly
-   - Write: "We do not currently have data for this category."
-   - Do NOT fill sections with made-up statistics or generic market projections
-   - Do NOT write things like "Similar products have achieved X yen" without a source URL
-
-6. ABSOLUTELY FORBIDDEN - THESE ARE LIES WITHOUT SOURCES:
-   - "Competing products have achieved sales of up to X yen"
-   - "Similar products have reported sales between X and Y yen"
-   - "The market is estimated at X yen"
-   - "Similar products have secured funding amounts reaching up to X yen"
-   - "Products in this category typically sell X yen"
-   - Any specific yen amount without a URL to verify it
 
 FORMAT RULES:
 1. English only - NO Japanese characters except in product names
@@ -377,17 +352,45 @@ FORMAT RULES:
 4. Blank lines only between numbered sections
 5. IMPORTANT: After each section title (e.g., "1. Product Features:"), add a line break before the content
 
-SECTION FORMAT EXAMPLE:
-1. Product Features:
-The Kita rod is a premium tenkara fly fishing rod made in Japan...
-
-2. Kickstarter Price:
-The product is priced at approximately $150...
-
 You are writing the report section only - no greetings, no signatures, no "Dear X"."""
 
+            # データルールを追加（スプレッドシートK2から、または デフォルト）
+            if data_rules_prompt.strip():
+                print(f"  📋 Using data rules from spreadsheet ({len(data_rules_prompt)} chars)")
+                data_rules = self._translate_to_english(data_rules_prompt)
+            else:
+                # デフォルトのデータルール（捏造禁止）
+                data_rules = """=== CRITICAL DATA RULES - ABSOLUTELY NO FABRICATION ===
+
+1. ONLY USE DATA FROM THE MARKET RESEARCH PROVIDED:
+   - Use EXACT numbers from the market research data - no rounding, no estimating
+   - Every Makuake/CAMPFIRE product mentioned MUST include its full URL
+   - If data says "$606,041" and "2,903 backers" - use those exact figures
+
+2. MANDATORY: EVERY NUMBER NEEDS A SOURCE URL
+   - When you mention ANY specific amount (yen, dollars, percentages), you MUST include the source URL
+   - If you cannot provide a URL for a number, DO NOT include that number
+
+3. IF DATA IS NOT IN THE MARKET RESEARCH, DO NOT MAKE IT UP:
+   - If no Kickstarter funding amount is provided, write: "Kickstarter funding data was not available at the time of this report."
+   - If no EC sales data is provided, write: "No EC sales data is currently available for this product in Japan."
+   - NEVER invent numbers like "up to 15,000,000 yen" or "between 3,000,000 and 7,000,000 yen"
+
+4. FOR SIMILAR PRODUCTS ON MAKUAKE/CAMPFIRE:
+   - ONLY mention products that appear in the market research data with their URLs
+   - If a funding amount is shown, include it WITH the URL
+   - If no funding amount is shown, do NOT guess - just mention the product exists
+
+5. ABSOLUTELY FORBIDDEN - THESE ARE LIES WITHOUT SOURCES:
+   - "Competing products have achieved sales of up to X yen"
+   - "Similar products have reported sales between X and Y yen"
+   - "The market is estimated at X yen"
+   - "Products in this category typically sell X yen"
+   - Any specific yen amount without a URL to verify it
+   - Any price like "15,000 yen" or "starting at X yen" unless it's in the provided data"""
+
             # システム設定（G2）と共通プロンプト（A2）を追加
-            system_parts = [base_system_prompt]
+            system_parts = [base_system_prompt, data_rules]
             if translated_system_settings:
                 system_parts.append(translated_system_settings)
             if translated_common_prompt:
@@ -628,64 +631,47 @@ You are writing the report section only - no greetings, no signatures, no "Dear 
             return report
 
         try:
-            refine_prompt = f"""You are an editor reviewing a market report. Your job is to make it sound like it was written by an experienced human consultant, not by AI.
+            refine_prompt = f"""You are an editor reviewing a market report. Your ONLY job is to improve the writing style - NOT to change any data.
 
 ORIGINAL REPORT:
 {report}
 
-REWRITE THIS REPORT following these rules:
+EDIT THIS REPORT following these rules:
 
-1. REPLACE these AI-sounding phrases with natural alternatives:
-   - "aligns with" → "matches", "fits", "works for"
-   - "resonates with" → "appeals to", "clicks with"
-   - "caters to" → "serves", "fits"
-   - "leverage" → "use", "take advantage of"
+=== ABSOLUTE RESTRICTION - DATA INTEGRITY ===
+You MUST NOT change ANY numbers, amounts, or figures in this report.
+- If the report says "$606,041" - keep it as "$606,041"
+- If the report says "2,903 backers" - keep it as "2,903 backers"
+- If the report says "4,629,102円" - keep it as "4,629,102円"
+- DO NOT convert currencies (don't turn dollars into yen)
+- DO NOT invent new numbers
+- DO NOT add prices, funding amounts, or statistics that aren't in the original
+
+=== STYLE IMPROVEMENTS (what you CAN do) ===
+1. Replace AI-sounding phrases with natural alternatives:
+   - "aligns with" → "matches", "fits"
+   - "leverage" → "use"
    - "utilize" → "use"
-   - "capitalize on" → "use", "build on"
-   - "robust" → remove or use specific adjective
-   - "comprehensive" → "full", "complete", or remove
-   - "strategic" → remove or be specific
-   - "cutting-edge" → describe the specific technology
-   - "advanced technology" → name the actual technology
-   - "well-positioned" → explain why specifically
-   - "competitive landscape" → "market", "competition"
-   - "market validation" → cite the actual numbers
-   - "significant opportunity" → state the specific opportunity
-   - "strong potential" → state specific numbers/projections
-   - "increasingly seeking" → "want", "look for"
-   - "growing demand" → cite specific growth numbers or remove
+   - "robust", "comprehensive", "strategic" → remove or be specific
 
-2. COMPLETELY REMOVE these template texts if they appear:
-   - "Company & Performance References" (this is footer text that shouldn't be in the report)
-   - "宜しくお願い致します" or any Japanese text (this is template text)
+2. Remove template texts:
+   - "Company & Performance References"
+   - "宜しくお願い致します"
 
-3. REMOVE filler sentences that say what you'll discuss without actually discussing it:
-   BAD: "The e-commerce performance will depend on effective marketing strategies."
-   GOOD: "On Amazon Japan, price this at 29,800 yen - that's 20% below Duovox but above the cheap Chinese knockoffs."
-
-4. KEEP all URLs exactly as they are - do not modify or remove any URLs
-5. KEEP all numbers exactly as they are - do not change any figures
-6. KEEP the same section structure (numbered sections)
-7. KEEP the same overall length - don't make it shorter
-
-8. CRITICAL - DO NOT ADD DATA:
-   - Do NOT invent any sales figures, market sizes, or projections
-   - Do NOT add numbers that weren't in the original report
-   - If a section says "no data available", keep that - do not replace it with made-up statistics
-   - NEVER add phrases like "up to X million yen" or "between X and Y yen" unless they were in the original
-   - Every number in the report MUST have a source URL - if there's no URL, remove the number
-   - If you see a number without a URL, either add the URL from the original or remove the number entirely
-
-9. USE a confident, direct voice:
+3. Make the voice more direct:
    - "I recommend..." not "It would be advisable to..."
-   - "Do this..." not "Consider doing this..."
-   - "The best approach is..." not "One potential approach could be..."
 
-10. FORMAT - Add line break after each section title:
-    WRONG: "1. Product Features: The product is..."
-    RIGHT: "1. Product Features:\nThe product is..."
+4. Add line break after section titles:
+   WRONG: "1. Product Features: The product is..."
+   RIGHT: "1. Product Features:\nThe product is..."
 
-Output the refined report only, no explanations."""
+=== KEEP UNCHANGED ===
+- ALL URLs - do not modify any URL
+- ALL numbers, amounts, currencies, figures
+- ALL product names
+- Section structure
+
+Output the edited report only, no explanations."""
 
             response = self.client.chat.completions.create(
                 model=self.model,
