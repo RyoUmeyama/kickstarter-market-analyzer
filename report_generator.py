@@ -314,13 +314,16 @@ ABSOLUTELY FORBIDDEN - These make you sound like AI:
 - "aligns with", "resonates with", "caters to"
 - "leverage", "utilize", "capitalize on"
 - "robust", "comprehensive", "strategic"
-- "cutting-edge", "state-of-the-art", "innovative" (unless truly novel)
+- "cutting-edge", "state-of-the-art", "innovative", "advanced technology"
 - "eco-friendly", "user-friendly", "sustainable" (unless specific evidence)
 - "significant opportunity", "strong potential", "favorable market"
 - "increasingly seeking", "growing demand", "rising trend"
-- Starting sentences with "Additionally", "Furthermore", "Moreover"
+- "well-positioned", "competitive landscape", "market validation"
+- Starting sentences with "Additionally", "Furthermore", "Moreover", "Lastly"
 - Empty phrases like "will depend on effective strategies"
 - Describing what you WILL discuss instead of actually discussing it
+- "Company & Performance References" (this is template text, never include it)
+- Any Japanese text like "宜しくお願い致します" (this is template, never include)
 
 INSTEAD, WRITE LIKE THIS:
 - "This product faces a crowded market - there are already 12 similar items on Amazon Japan"
@@ -560,6 +563,16 @@ You are writing the report section only - no greetings, no signatures, no "Dear 
         # 連続する空行を1つに整理
         text = re.sub(r'\n{3,}', '\n\n', text)
 
+        # レポート本文内の不要なテキストを削除
+        # "Company & Performance References" がレポート中に混入している場合削除
+        text = re.sub(r'\n*Company\s*&?\s*Performance\s*References?\s*\n*', '\n\n', text, flags=re.IGNORECASE)
+
+        # "宜しくお願い致します。" がレポート中に混入している場合削除
+        text = re.sub(r'\n*宜しくお願い致します。?\s*\n*', '\n\n', text)
+
+        # 連続する空行を再度1つに整理
+        text = re.sub(r'\n{3,}', '\n\n', text)
+
         return text.strip()
 
     def _refine_report(self, report):
@@ -593,26 +606,35 @@ REWRITE THIS REPORT following these rules:
    - "robust" → remove or use specific adjective
    - "comprehensive" → "full", "complete", or remove
    - "strategic" → remove or be specific
+   - "cutting-edge" → describe the specific technology
+   - "advanced technology" → name the actual technology
+   - "well-positioned" → explain why specifically
+   - "competitive landscape" → "market", "competition"
+   - "market validation" → cite the actual numbers
    - "significant opportunity" → state the specific opportunity
    - "strong potential" → state specific numbers/projections
    - "increasingly seeking" → "want", "look for"
    - "growing demand" → cite specific growth numbers or remove
 
-2. REMOVE filler sentences that say what you'll discuss without actually discussing it:
+2. COMPLETELY REMOVE these template texts if they appear:
+   - "Company & Performance References" (this is footer text that shouldn't be in the report)
+   - "宜しくお願い致します" or any Japanese text (this is template text)
+
+3. REMOVE filler sentences that say what you'll discuss without actually discussing it:
    BAD: "The e-commerce performance will depend on effective marketing strategies."
    GOOD: "On Amazon Japan, price this at 29,800 yen - that's 20% below Duovox but above the cheap Chinese knockoffs."
 
-3. ADD specificity:
+4. ADD specificity:
    - If you mention a challenge, explain HOW to solve it
    - If you mention an opportunity, give a concrete action step
    - If you compare to competitors, use actual numbers
 
-4. KEEP all URLs exactly as they are - do not modify or remove any URLs
-5. KEEP all numbers exactly as they are - do not change any figures
-6. KEEP the same section structure (numbered sections)
-7. KEEP the same overall length - don't make it shorter
+5. KEEP all URLs exactly as they are - do not modify or remove any URLs
+6. KEEP all numbers exactly as they are - do not change any figures
+7. KEEP the same section structure (numbered sections)
+8. KEEP the same overall length - don't make it shorter
 
-8. USE a confident, direct voice:
+9. USE a confident, direct voice:
    - "I recommend..." not "It would be advisable to..."
    - "Do this..." not "Consider doing this..."
    - "The best approach is..." not "One potential approach could be..."
