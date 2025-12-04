@@ -248,7 +248,7 @@ class MarketSearcher:
             page = context.new_page()
 
             # ページにアクセス
-            page.goto(base_url, wait_until='domcontentloaded', timeout=30000)
+            page.goto(base_url, wait_until='domcontentloaded', timeout=60000)
             page.wait_for_timeout(3000)  # JavaScriptの実行を待機
 
             # ページ内容を取得
@@ -547,7 +547,7 @@ URL: {kickstarter_url}
         page = None
         try:
             page = self._context.new_page()
-            page.goto(search_url, wait_until='domcontentloaded', timeout=30000)
+            page.goto(search_url, wait_until='domcontentloaded', timeout=60000)
             page.wait_for_timeout(3000)
 
             html = page.content()
@@ -663,7 +663,7 @@ URL: {kickstarter_url}
         page = None
         try:
             page = context.new_page()
-            page.goto(search_url, wait_until='domcontentloaded', timeout=30000)
+            page.goto(search_url, wait_until='domcontentloaded', timeout=60000)
             page.wait_for_timeout(3000)
 
             html = page.content()
