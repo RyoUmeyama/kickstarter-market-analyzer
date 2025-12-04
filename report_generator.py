@@ -332,18 +332,49 @@ INSTEAD, WRITE LIKE THIS:
 - "Japanese consumers will pay premium for this, but only if you nail the unboxing experience"
 - "Skip Rakuten initially - Amazon Japan gives you 80% of the market with half the setup headache"
 
-DATA RULES (STRICT):
-1. Use EXACT numbers from the market research data - no rounding, no estimating
-2. Every Makuake/CAMPFIRE product mentioned MUST include its full URL
-3. If data says "$606,041" and "2,903 backers" - use those exact figures
-4. If no data available for a topic, say something specific about WHY and what you'd need
-5. NEVER write "please refer to the Kickstarter page" - cite the actual data
+=== CRITICAL DATA RULES - ABSOLUTELY NO FABRICATION ===
+
+1. ONLY USE DATA FROM THE MARKET RESEARCH PROVIDED:
+   - Use EXACT numbers from the market research data - no rounding, no estimating
+   - Every Makuake/CAMPFIRE product mentioned MUST include its full URL
+   - If data says "$606,041" and "2,903 backers" - use those exact figures
+
+2. IF DATA IS NOT IN THE MARKET RESEARCH, DO NOT MAKE IT UP:
+   - If no Kickstarter funding amount is provided, write: "Kickstarter funding data was not available at the time of this report."
+   - If no EC sales data is provided, write: "No EC sales data is currently available for this product in Japan."
+   - If no retail sales data is provided, write: "No retail sales data is currently available."
+   - NEVER invent numbers like "up to 15,000,000 yen" or "between 3,000,000 and 7,000,000 yen" without a source
+
+3. FOR SIMILAR PRODUCTS ON MAKUAKE/CAMPFIRE:
+   - ONLY mention products that appear in the market research data with their URLs
+   - If a funding amount is shown (e.g., "4,629,102円"), include it
+   - If no funding amount is shown, just mention the product exists without fabricating an amount
+   - ALWAYS include the full URL for every product mentioned
+
+4. SECTIONS WITH NO DATA:
+   - If a section has no relevant data, acknowledge it honestly
+   - Write something like: "We do not have sales data for this category. Once you launch, we can track actual performance."
+   - Do NOT fill sections with made-up statistics or generic market projections
+
+5. NEVER WRITE THESE WITHOUT A SPECIFIC SOURCE:
+   - "Competing products have achieved sales of up to X yen"
+   - "Similar products have reported sales between X and Y yen"
+   - "The market is estimated at X yen"
+   - Any specific yen amount for EC or retail sales
 
 FORMAT RULES:
 1. English only - NO Japanese characters except in product names
 2. Plain text only - no markdown, no bullets, no asterisks
 3. Natural paragraphs - don't put each sentence on its own line
 4. Blank lines only between numbered sections
+5. IMPORTANT: After each section title (e.g., "1. Product Features:"), add a line break before the content
+
+SECTION FORMAT EXAMPLE:
+1. Product Features:
+The Kita rod is a premium tenkara fly fishing rod made in Japan...
+
+2. Kickstarter Price:
+The product is priced at approximately $150...
 
 You are writing the report section only - no greetings, no signatures, no "Dear X"."""
 
@@ -624,20 +655,25 @@ REWRITE THIS REPORT following these rules:
    BAD: "The e-commerce performance will depend on effective marketing strategies."
    GOOD: "On Amazon Japan, price this at 29,800 yen - that's 20% below Duovox but above the cheap Chinese knockoffs."
 
-4. ADD specificity:
-   - If you mention a challenge, explain HOW to solve it
-   - If you mention an opportunity, give a concrete action step
-   - If you compare to competitors, use actual numbers
+4. KEEP all URLs exactly as they are - do not modify or remove any URLs
+5. KEEP all numbers exactly as they are - do not change any figures
+6. KEEP the same section structure (numbered sections)
+7. KEEP the same overall length - don't make it shorter
 
-5. KEEP all URLs exactly as they are - do not modify or remove any URLs
-6. KEEP all numbers exactly as they are - do not change any figures
-7. KEEP the same section structure (numbered sections)
-8. KEEP the same overall length - don't make it shorter
+8. CRITICAL - DO NOT ADD DATA:
+   - Do NOT invent any sales figures, market sizes, or projections
+   - Do NOT add numbers that weren't in the original report
+   - If a section says "no data available", keep that - do not replace it with made-up statistics
+   - NEVER add phrases like "up to X million yen" or "between X and Y yen" unless they were in the original
 
 9. USE a confident, direct voice:
    - "I recommend..." not "It would be advisable to..."
    - "Do this..." not "Consider doing this..."
    - "The best approach is..." not "One potential approach could be..."
+
+10. FORMAT - Add line break after each section title:
+    WRONG: "1. Product Features: The product is..."
+    RIGHT: "1. Product Features:\nThe product is..."
 
 Output the refined report only, no explanations."""
 
