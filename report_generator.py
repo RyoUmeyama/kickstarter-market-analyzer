@@ -339,28 +339,36 @@ INSTEAD, WRITE LIKE THIS:
    - Every Makuake/CAMPFIRE product mentioned MUST include its full URL
    - If data says "$606,041" and "2,903 backers" - use those exact figures
 
-2. IF DATA IS NOT IN THE MARKET RESEARCH, DO NOT MAKE IT UP:
+2. MANDATORY: EVERY NUMBER NEEDS A SOURCE URL
+   - When you mention ANY specific amount (yen, dollars, percentages), you MUST include the source URL
+   - Example: "Duovox Ultra Pro raised 4,629,102 yen on Makuake. See: https://www.makuake.com/project/duovox_ultrapro"
+   - If you cannot provide a URL for a number, DO NOT include that number
+
+3. IF DATA IS NOT IN THE MARKET RESEARCH, DO NOT MAKE IT UP:
    - If no Kickstarter funding amount is provided, write: "Kickstarter funding data was not available at the time of this report."
    - If no EC sales data is provided, write: "No EC sales data is currently available for this product in Japan."
    - If no retail sales data is provided, write: "No retail sales data is currently available."
-   - NEVER invent numbers like "up to 15,000,000 yen" or "between 3,000,000 and 7,000,000 yen" without a source
+   - NEVER invent numbers like "up to 15,000,000 yen" or "between 3,000,000 and 7,000,000 yen" or "approximately 5,000,000 yen"
 
-3. FOR SIMILAR PRODUCTS ON MAKUAKE/CAMPFIRE:
+4. FOR SIMILAR PRODUCTS ON MAKUAKE/CAMPFIRE:
    - ONLY mention products that appear in the market research data with their URLs
-   - If a funding amount is shown (e.g., "4,629,102円"), include it
-   - If no funding amount is shown, just mention the product exists without fabricating an amount
+   - If a funding amount is shown in the data (e.g., "4,629,102円"), include it WITH the URL
+   - If no funding amount is shown in the data, do NOT guess or estimate - just mention the product exists
    - ALWAYS include the full URL for every product mentioned
 
-4. SECTIONS WITH NO DATA:
+5. SECTIONS WITH NO DATA:
    - If a section has no relevant data, acknowledge it honestly
-   - Write something like: "We do not have sales data for this category. Once you launch, we can track actual performance."
+   - Write: "We do not currently have data for this category."
    - Do NOT fill sections with made-up statistics or generic market projections
+   - Do NOT write things like "Similar products have achieved X yen" without a source URL
 
-5. NEVER WRITE THESE WITHOUT A SPECIFIC SOURCE:
+6. ABSOLUTELY FORBIDDEN - THESE ARE LIES WITHOUT SOURCES:
    - "Competing products have achieved sales of up to X yen"
    - "Similar products have reported sales between X and Y yen"
    - "The market is estimated at X yen"
-   - Any specific yen amount for EC or retail sales
+   - "Similar products have secured funding amounts reaching up to X yen"
+   - "Products in this category typically sell X yen"
+   - Any specific yen amount without a URL to verify it
 
 FORMAT RULES:
 1. English only - NO Japanese characters except in product names
@@ -665,6 +673,8 @@ REWRITE THIS REPORT following these rules:
    - Do NOT add numbers that weren't in the original report
    - If a section says "no data available", keep that - do not replace it with made-up statistics
    - NEVER add phrases like "up to X million yen" or "between X and Y yen" unless they were in the original
+   - Every number in the report MUST have a source URL - if there's no URL, remove the number
+   - If you see a number without a URL, either add the URL from the original or remove the number entirely
 
 9. USE a confident, direct voice:
    - "I recommend..." not "It would be advisable to..."

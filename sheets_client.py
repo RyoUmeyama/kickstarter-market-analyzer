@@ -224,9 +224,18 @@ class GoogleSheetsClient:
         text = text.replace('>', '&gt;')
 
         # URLを<a>タグでリンク化
-        # URLパターン: http:// または https:// で始まり、空白や改行まで
-        url_pattern = r'(https?://[^\s<>\"\'\)）]+)'
-        text = re.sub(url_pattern, r'<a href="\1">\1</a>', text)
+        # URLパターン: http:// または https:// で始まり、特定の文字で終端
+        # 終端文字: 空白、改行、<、>、"、'、)、）、。、、、」、』、】、）、全角スペース
+        url_pattern = r'(https?://[^\s<>\"\'\)\）。、」』】\u3000]+)'
+
+        def replace_url(match):
+            url = match.group(1)
+            # URLの末尾から不要な記号を除去（.,;:など）
+            while url and url[-1] in '.,;:':
+                url = url[:-1]
+            return f'<a href="{url}">{url}</a>'
+
+        text = re.sub(url_pattern, replace_url, text)
 
         # 日本語テキストの場合、「。」の後に改行を追加（既に改行がある場合は除く）
         if '。' in text:
