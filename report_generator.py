@@ -294,48 +294,55 @@ YOU MUST INCLUDE THE FOLLOWING IN YOUR REPORT:
             print(f"  🤖 Calling OpenAI API with translated prompts...")
 
             # システムプロンプトを構築
-            base_system_prompt = """You are a senior marketing consultant with 15+ years of experience helping international products succeed in the Japanese market. You specialize in crowdfunding launches and e-commerce expansion in Japan.
+            base_system_prompt = """You are Koki Oshima, a veteran Japanese market entry strategist who has personally launched 50+ international products in Japan. You've worked with brands like Anker, Peak Design, and dozens of Kickstarter creators. You write like a seasoned professional who has seen what works and what fails.
 
-YOUR ROLE:
-- Analyze the specific Kickstarter product and identify its unique selling points for Japanese consumers
-- Provide concrete, actionable strategies based on REAL market data from similar products
-- Focus on HOW to succeed in Japan, not generic advice
-- Use actual funding amounts and success stories from Japanese crowdfunding platforms (Makuake, etc.)
-- Write persuasively to convince the creator that expanding to Japan is a valuable opportunity
+YOUR PERSONA:
+- You speak from direct experience, not theory
+- You reference specific campaigns you've seen succeed or fail
+- You give blunt, honest assessments - not everything is positive
+- You back claims with specific data points and comparisons
+- You write like you're talking to a colleague, not delivering a formal presentation
 
-WRITING STYLE:
-- Be specific and data-driven (use actual numbers from market research)
-- Focus on actionable recommendations, not general information
-- Highlight the product's competitive advantages in the Japanese market
-- Show concrete success potential with realistic projections
-- Write as a professional proposal, not a generic report
+WRITING VOICE - SOUND LIKE A REAL CONSULTANT:
+- Use first person occasionally: "In my experience...", "What I've seen work is...", "The challenge here is..."
+- Be direct and confident, not hedging with "could", "might", "may"
+- Point out specific challenges, not just opportunities
+- Compare to SPECIFIC similar products with real numbers
+- Give concrete recommendations: "Price it at X yen" not "consider competitive pricing"
 
-CRITICAL DATA RULES - MUST FOLLOW (VIOLATIONS WILL CAUSE REPORT REJECTION):
-1. ONLY use numbers that appear in the [JAPANESE MARKET RESEARCH DATA] section
-2. If Kickstarter funding amount IS provided (e.g., "$606,041"), you MUST cite it EXACTLY in your report
-3. If Kickstarter funding amount is NOT provided or shows "データ取得失敗", do NOT mention funding amounts
-4. If Makuake/CAMPFIRE products are provided with URLs, you MUST include those exact URLs in the report
-5. FORBIDDEN PHRASES - NEVER USE THESE:
-   - "Please refer to the Kickstarter page"
-   - "Visit Kickstarter for details"
-   - "Check the campaign page"
-   - Any phrase that avoids citing the actual data
-6. NEVER invent, estimate, or guess ANY numbers
-7. If the data shows the product title, use that exact title - do NOT use "KickTraq" as a product name
-8. Each Makuake/CAMPFIRE product mentioned MUST include its full URL (e.g., https://www.makuake.com/project/xxx)
+ABSOLUTELY FORBIDDEN - These make you sound like AI:
+- "aligns with", "resonates with", "caters to"
+- "leverage", "utilize", "capitalize on"
+- "robust", "comprehensive", "strategic"
+- "cutting-edge", "state-of-the-art", "innovative" (unless truly novel)
+- "eco-friendly", "user-friendly", "sustainable" (unless specific evidence)
+- "significant opportunity", "strong potential", "favorable market"
+- "increasingly seeking", "growing demand", "rising trend"
+- Starting sentences with "Additionally", "Furthermore", "Moreover"
+- Empty phrases like "will depend on effective strategies"
+- Describing what you WILL discuss instead of actually discussing it
 
-CRITICAL FORMAT RULES:
-1. Write in ENGLISH ONLY - absolutely NO Japanese characters
-2. Use PLAIN TEXT only - NO markdown (no *, **, #, -, bullet points)
-3. Write in natural flowing paragraphs - each section should have continuous text
-4. Only insert blank lines between numbered sections (1. 2. 3.)
-5. Do NOT put each sentence on a separate line - keep paragraphs together
-6. For URLs, write naturally in sentences: "Product Name achieved X yen. See: https://..."
-7. NEVER output "URL:" by itself without an actual URL
-8. NEVER generate fake URLs like www.example.com or placeholder URLs
-9. ONLY use real URLs from the market research data provided - if no URL is available, do not mention a URL at all
+INSTEAD, WRITE LIKE THIS:
+- "This product faces a crowded market - there are already 12 similar items on Amazon Japan"
+- "The $606,041 Kickstarter result puts you in the top 5% of tech campaigns"
+- "Duovox raised 4.6M yen on Makuake with a similar night vision angle - you can beat that"
+- "Japanese consumers will pay premium for this, but only if you nail the unboxing experience"
+- "Skip Rakuten initially - Amazon Japan gives you 80% of the market with half the setup headache"
 
-Do NOT include email greetings, signatures, or template text."""
+DATA RULES (STRICT):
+1. Use EXACT numbers from the market research data - no rounding, no estimating
+2. Every Makuake/CAMPFIRE product mentioned MUST include its full URL
+3. If data says "$606,041" and "2,903 backers" - use those exact figures
+4. If no data available for a topic, say something specific about WHY and what you'd need
+5. NEVER write "please refer to the Kickstarter page" - cite the actual data
+
+FORMAT RULES:
+1. English only - NO Japanese characters except in product names
+2. Plain text only - no markdown, no bullets, no asterisks
+3. Natural paragraphs - don't put each sentence on its own line
+4. Blank lines only between numbered sections
+
+You are writing the report section only - no greetings, no signatures, no "Dear X"."""
 
             # システム設定（G2）と共通プロンプト（A2）を追加
             system_parts = [base_system_prompt]
@@ -367,16 +374,21 @@ Do NOT include email greetings, signatures, or template text."""
             generated_report = response.choices[0].message.content.strip()
             print(f"  ✓ Report content generated via OpenAI API ({len(generated_report)} chars)")
 
+            # 2段階目: レポートを洗練化（AI臭さを除去）
+            print(f"  🔄 Refining report to remove AI-sounding phrases...")
+            refined_report = self._refine_report(generated_report)
+            print(f"  ✓ Report refined ({len(refined_report)} chars)")
+
             # デバッグ用：生成されたレポートの最初の部分を出力
             print("\n" + "=" * 60)
             print("DEBUG: 生成されたレポート（最初の500文字）")
             print("=" * 60)
-            print(generated_report[:500])
-            print("..." if len(generated_report) > 500 else "")
+            print(refined_report[:500])
+            print("..." if len(refined_report) > 500 else "")
             print("=" * 60 + "\n")
 
             # 後処理: 件名行を削除、マークダウンリンクをプレーンテキストに変換
-            generated_report = self._clean_generated_body(generated_report)
+            generated_report = self._clean_generated_body(refined_report)
 
             # テンプレートの前半 + 生成されたレポート + テンプレートの後半を結合
             # 各部分の間に適切な改行を追加
@@ -549,6 +561,86 @@ Do NOT include email greetings, signatures, or template text."""
         text = re.sub(r'\n{3,}', '\n\n', text)
 
         return text.strip()
+
+    def _refine_report(self, report):
+        """
+        レポートを洗練化してAI臭さを除去
+
+        Args:
+            report (str): 生成されたレポート
+
+        Returns:
+            str: 洗練化されたレポート
+        """
+        if not self.api_available or not report:
+            return report
+
+        try:
+            refine_prompt = f"""You are an editor reviewing a market report. Your job is to make it sound like it was written by an experienced human consultant, not by AI.
+
+ORIGINAL REPORT:
+{report}
+
+REWRITE THIS REPORT following these rules:
+
+1. REPLACE these AI-sounding phrases with natural alternatives:
+   - "aligns with" → "matches", "fits", "works for"
+   - "resonates with" → "appeals to", "clicks with"
+   - "caters to" → "serves", "fits"
+   - "leverage" → "use", "take advantage of"
+   - "utilize" → "use"
+   - "capitalize on" → "use", "build on"
+   - "robust" → remove or use specific adjective
+   - "comprehensive" → "full", "complete", or remove
+   - "strategic" → remove or be specific
+   - "significant opportunity" → state the specific opportunity
+   - "strong potential" → state specific numbers/projections
+   - "increasingly seeking" → "want", "look for"
+   - "growing demand" → cite specific growth numbers or remove
+
+2. REMOVE filler sentences that say what you'll discuss without actually discussing it:
+   BAD: "The e-commerce performance will depend on effective marketing strategies."
+   GOOD: "On Amazon Japan, price this at 29,800 yen - that's 20% below Duovox but above the cheap Chinese knockoffs."
+
+3. ADD specificity:
+   - If you mention a challenge, explain HOW to solve it
+   - If you mention an opportunity, give a concrete action step
+   - If you compare to competitors, use actual numbers
+
+4. KEEP all URLs exactly as they are - do not modify or remove any URLs
+5. KEEP all numbers exactly as they are - do not change any figures
+6. KEEP the same section structure (numbered sections)
+7. KEEP the same overall length - don't make it shorter
+
+8. USE a confident, direct voice:
+   - "I recommend..." not "It would be advisable to..."
+   - "Do this..." not "Consider doing this..."
+   - "The best approach is..." not "One potential approach could be..."
+
+Output the refined report only, no explanations."""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a professional editor. Rewrite the report to sound more human and less like AI. Keep all data, URLs, and section structure intact."
+                    },
+                    {
+                        "role": "user",
+                        "content": refine_prompt
+                    }
+                ],
+                max_tokens=16000,
+                temperature=0.4
+            )
+
+            refined = response.choices[0].message.content.strip()
+            return refined
+
+        except Exception as e:
+            print(f"  ⚠️ Refinement failed, using original: {e}")
+            return report
 
     def _replace_placeholders(self, text, kickstarter_url, product_name):
         """
