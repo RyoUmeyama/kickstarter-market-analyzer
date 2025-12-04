@@ -79,7 +79,7 @@ RULES:
             print(f"  ⚠️ Translation failed, using original text: {e}")
             return text
 
-    def generate_report(self, template, kickstarter_url, product_name='', common_prompt='', system_settings='', translation_rules='', output_format_rules='', ai_system_prompt='', data_rules_prompt=''):
+    def generate_report(self, template, kickstarter_url, product_name='', common_prompt='', system_settings='', translation_rules='', output_format_rules=''):
         """
         テンプレートに基づいてレポートを生成
 
@@ -89,6 +89,10 @@ RULES:
         - A3（プロンプト、日本語）がある場合のみOpenAI APIを使用
           → 英語でレポートを生成 → Google Sheetsで日本語に翻訳
 
+        主要な設定（設定シートから読み込み）:
+        - A2: 共通プロンプト（レポートの質・文体 - お客様編集可能）
+        - G2: システム設定（テンプレート保持ルール、データ正確性ルール - 変更不可）
+
         Args:
             template (dict): テンプレート設定
             kickstarter_url (str): Kickstarter URL
@@ -97,8 +101,6 @@ RULES:
             system_settings (str, optional): システム設定（設定シートG2から読み込み）
             translation_rules (str, optional): 翻訳ルール（設定シートH2から読み込み）
             output_format_rules (str, optional): 出力形式ルール（設定シートI2から読み込み）
-            ai_system_prompt (str, optional): AIシステムプロンプト（設定シートJ2から読み込み）
-            data_rules_prompt (str, optional): データルール（設定シートK2から読み込み）
 
         Returns:
             dict: 生成されたレポート
@@ -106,9 +108,6 @@ RULES:
         # 翻訳ルールを保存（_translate_to_english で使用）
         self._translation_rules = translation_rules
         self._output_format_rules = output_format_rules
-        # AIプロンプトを保存（_generate_from_prompt で使用）
-        self._ai_system_prompt = ai_system_prompt
-        self._data_rules_prompt = data_rules_prompt
         # 件名のプレースホルダーを置換（GOOGLETRANSLATE関数の結果がそのまま入っている）
         en_subject = self._replace_placeholders(
             template['en_subject'],
@@ -310,90 +309,24 @@ You MUST use these EXACT numbers - do not round, estimate, or convert them.
             print(f"  🤖 Calling OpenAI API with translated prompts...")
 
             # システムプロンプトを構築
-            # スプレッドシートからAIシステムプロンプト（J2）が設定されていればそれを使用
-            # 設定されていなければデフォルトを使用
-            ai_system_prompt = getattr(self, '_ai_system_prompt', '') or ''
-            data_rules_prompt = getattr(self, '_data_rules_prompt', '') or ''
+            # 設定シートの内容を主に使用し、コードからのデフォルトは最小限にする
 
-            if ai_system_prompt.strip():
-                # スプレッドシートからのプロンプトを英訳して使用
-                print(f"  📋 Using AI system prompt from spreadsheet ({len(ai_system_prompt)} chars)")
-                base_system_prompt = self._translate_to_english(ai_system_prompt)
-            else:
-                # デフォルトのシステムプロンプト（AIの人格設定）
-                base_system_prompt = """You are Koki Oshima, a veteran Japanese market entry strategist who has personally launched 50+ international products in Japan. You've worked with brands like Anker, Peak Design, and dozens of Kickstarter creators. You write like a seasoned professional who has seen what works and what fails.
+            # 最小限の基本ルール（設定シートで上書き可能）
+            base_system_prompt = """You are a professional Japanese market entry consultant writing a report.
 
-YOUR PERSONA:
-- You speak from direct experience, not theory
-- You reference specific campaigns you've seen succeed or fail
-- You give blunt, honest assessments - not everything is positive
-- You back claims with specific data points and comparisons
-- You write like you're talking to a colleague, not delivering a formal presentation
+BASIC OUTPUT RULES:
+1. Write in English only (no Japanese characters except in product names)
+2. Plain text only - no markdown formatting
+3. Each section title must be followed by a line break
+4. You are writing the report section only - no greetings, no signatures"""
 
-WRITING VOICE - SOUND LIKE A REAL CONSULTANT:
-- Use first person occasionally: "In my experience...", "What I've seen work is...", "The challenge here is..."
-- Be direct and confident, not hedging with "could", "might", "may"
-- Point out specific challenges, not just opportunities
-- Compare to SPECIFIC similar products with real numbers
-
-ABSOLUTELY FORBIDDEN - These make you sound like AI:
-- "aligns with", "resonates with", "caters to"
-- "leverage", "utilize", "capitalize on"
-- "robust", "comprehensive", "strategic"
-- "cutting-edge", "state-of-the-art", "innovative", "advanced technology"
-- Starting sentences with "Additionally", "Furthermore", "Moreover", "Lastly"
-- "Company & Performance References" (this is template text, never include it)
-- Any Japanese text like "宜しくお願い致します" (this is template, never include)
-
-FORMAT RULES:
-1. English only - NO Japanese characters except in product names
-2. Plain text only - no markdown, no bullets, no asterisks
-3. Natural paragraphs - don't put each sentence on its own line
-4. Blank lines only between numbered sections
-5. IMPORTANT: After each section title (e.g., "1. Product Features:"), add a line break before the content
-
-You are writing the report section only - no greetings, no signatures, no "Dear X"."""
-
-            # データルールを追加（スプレッドシートK2から、または デフォルト）
-            if data_rules_prompt.strip():
-                print(f"  📋 Using data rules from spreadsheet ({len(data_rules_prompt)} chars)")
-                data_rules = self._translate_to_english(data_rules_prompt)
-            else:
-                # デフォルトのデータルール（捏造禁止）
-                data_rules = """=== CRITICAL DATA RULES - ABSOLUTELY NO FABRICATION ===
-
-1. ONLY USE DATA FROM THE MARKET RESEARCH PROVIDED:
-   - Use EXACT numbers from the market research data - no rounding, no estimating
-   - Every Makuake/CAMPFIRE product mentioned MUST include its full URL
-   - If data says "$606,041" and "2,903 backers" - use those exact figures
-
-2. MANDATORY: EVERY NUMBER NEEDS A SOURCE URL
-   - When you mention ANY specific amount (yen, dollars, percentages), you MUST include the source URL
-   - If you cannot provide a URL for a number, DO NOT include that number
-
-3. IF DATA IS NOT IN THE MARKET RESEARCH, DO NOT MAKE IT UP:
-   - If no Kickstarter funding amount is provided, write: "Kickstarter funding data was not available at the time of this report."
-   - If no EC sales data is provided, write: "No EC sales data is currently available for this product in Japan."
-   - NEVER invent numbers like "up to 15,000,000 yen" or "between 3,000,000 and 7,000,000 yen"
-
-4. FOR SIMILAR PRODUCTS ON MAKUAKE/CAMPFIRE:
-   - ONLY mention products that appear in the market research data with their URLs
-   - If a funding amount is shown, include it WITH the URL
-   - If no funding amount is shown, do NOT guess - just mention the product exists
-
-5. ABSOLUTELY FORBIDDEN - THESE ARE LIES WITHOUT SOURCES:
-   - "Competing products have achieved sales of up to X yen"
-   - "Similar products have reported sales between X and Y yen"
-   - "The market is estimated at X yen"
-   - "Products in this category typically sell X yen"
-   - Any specific yen amount without a URL to verify it
-   - Any price like "15,000 yen" or "starting at X yen" unless it's in the provided data"""
-
-            # システム設定（G2）と共通プロンプト（A2）を追加
-            system_parts = [base_system_prompt, data_rules]
+            # システムプロンプトを結合：基本ルール → システム設定（G2）→ 共通プロンプト（A2）
+            system_parts = [base_system_prompt]
             if translated_system_settings:
+                print(f"  📋 Using system settings from G2 ({len(translated_system_settings)} chars)")
                 system_parts.append(translated_system_settings)
             if translated_common_prompt:
+                print(f"  📋 Using common prompt from A2 ({len(translated_common_prompt)} chars)")
                 system_parts.append(translated_common_prompt)
 
             system_prompt = "\n\n".join(system_parts)
