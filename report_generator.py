@@ -213,20 +213,22 @@ RULES:
                 print("DEBUG: 市場調査データの確認")
                 print("=" * 60)
 
-                ks_info = search_results.get('ks_info', {})
+                ks_info = search_results.get('kickstarter_info', {})
                 print(f"  Kickstarter調達額: {ks_info.get('funding_amount', '未取得')}")
                 print(f"  Kickstarterバッカー数: {ks_info.get('backers_count', '未取得')}")
                 print(f"  データソース: {ks_info.get('data_source', '未取得')}")
 
-                makuake = search_results.get('makuake_products', [])
+                makuake_data = search_results.get('makuake', {})
+                makuake = makuake_data.get('projects', [])
                 print(f"  Makuake製品数: {len(makuake)}件")
                 for i, p in enumerate(makuake[:3], 1):
-                    print(f"    {i}. {p.get('title', 'N/A')[:30]}... URL: {p.get('url', 'N/A')}")
+                    print(f"    {i}. {p.get('name', 'N/A')[:30]}... URL: {p.get('url', 'N/A')}")
 
-                campfire = search_results.get('campfire_products', [])
+                campfire_data = search_results.get('campfire', {})
+                campfire = campfire_data.get('projects', [])
                 print(f"  CAMPFIRE製品数: {len(campfire)}件")
                 for i, p in enumerate(campfire[:3], 1):
-                    print(f"    {i}. {p.get('title', 'N/A')[:30]}... URL: {p.get('url', 'N/A')}")
+                    print(f"    {i}. {p.get('name', 'N/A')[:30]}... URL: {p.get('url', 'N/A')}")
 
                 print("=" * 60 + "\n")
 
