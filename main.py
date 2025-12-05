@@ -124,6 +124,10 @@ def main():
             )
             print(f"✓ 書き込み完了！")
 
+            # Kickstarterのボット検出を回避するため、ブラウザセッションをリセット
+            # 同一セッションでの連続アクセスがブロックされるため、各商品処理後にリセットする
+            report_generator.reset_browser()
+
         except Exception as e:
             print(f"\n❌ エラーが発生しました: {e}")
             import traceback
@@ -140,6 +144,9 @@ def main():
                 )
             except:
                 pass
+
+            # エラー時もブラウザをリセット
+            report_generator.reset_browser()
 
             continue
 

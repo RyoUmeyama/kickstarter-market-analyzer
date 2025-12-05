@@ -33,6 +33,14 @@ class ReportGenerator:
             self.api_available = False
             self.market_searcher = None
 
+    def reset_browser(self):
+        """
+        ブラウザセッションをリセット（Kickstarterのボット検出回避用）
+        各商品処理後に呼び出すことで、新しいセッションで次の商品を取得できる
+        """
+        if self.market_searcher:
+            self.market_searcher.reset_browser()
+
     def _contains_japanese(self, text):
         """
         テキストに日本語文字が含まれているかチェック

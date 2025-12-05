@@ -440,6 +440,15 @@ class MarketSearcher:
 
         return result
 
+    def reset_browser(self):
+        """
+        ブラウザセッションをリセット（Kickstarterのボット検出回避用）
+        各商品処理後に呼び出すことで、新しいセッションで次の商品を取得できる
+        """
+        print("     🔄 ブラウザセッションをリセット中...")
+        self._close_browser()
+        print("     ✓ ブラウザセッションをリセットしました")
+
     def _fetch_kickstarter_info(self, kickstarter_url):
         """
         Kickstarterページから製品情報を取得
