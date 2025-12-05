@@ -456,16 +456,16 @@ class MarketSearcher:
         if result.get('funding_amount') or result.get('backers_count'):
             return result
 
-        # 2. Bright Dataプロキシで再試行（有料）
-        bright_data_username = os.getenv('BRIGHT_DATA_USERNAME')
-        bright_data_password = os.getenv('BRIGHT_DATA_PASSWORD')
-
-        if bright_data_username and bright_data_password:
-            print("     → Bright Dataプロキシで再試行...")
-            result = self._fetch_kickstarter_info_playwright(kickstarter_url, use_proxy=True)
-
-            if result.get('funding_amount') or result.get('backers_count'):
-                return result
+        # 2. Bright Dataプロキシは一時的に無効化（API制限のため）
+        # bright_data_username = os.getenv('BRIGHT_DATA_USERNAME')
+        # bright_data_password = os.getenv('BRIGHT_DATA_PASSWORD')
+        #
+        # if bright_data_username and bright_data_password:
+        #     print("     → Bright Dataプロキシで再試行...")
+        #     result = self._fetch_kickstarter_info_playwright(kickstarter_url, use_proxy=True)
+        #
+        #     if result.get('funding_amount') or result.get('backers_count'):
+        #         return result
 
         # 3. 全て失敗した場合は正直に報告
         print("     ⚠️ Kickstarterデータの取得に失敗しました")
