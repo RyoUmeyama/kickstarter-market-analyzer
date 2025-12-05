@@ -372,45 +372,78 @@ FORBIDDEN EXTRA SECTIONS (DO NOT GENERATE):
 
 """
 
+            # Kickstarterデータを明示的に抽出（search_resultsはmarket_searcherから取得済み）
+            ks_info = search_results.get('kickstarter_info', {}) if search_results else {}
+            ks_funding = ks_info.get('funding_amount', '')
+            ks_backers = ks_info.get('backers_count', 0)
+            ks_data_source = ks_info.get('data_source', '')
+
+            # Kickstarterデータの明示的なセクションを構築
+            if ks_funding and ks_funding.strip():
+                kickstarter_data_section = f"""
+=== KICKSTARTER DATA (MANDATORY - USE EXACTLY AS SHOWN) ===
+FUNDING AMOUNT: {ks_funding}
+BACKERS COUNT: {ks_backers}
+DATA SOURCE: {ks_data_source}
+
+YOU MUST USE THESE EXACT VALUES IN YOUR REPORT.
+- For Section 2 (Price): Look for pledge/reward tiers in the market data
+- For Section 3 (Total Funding): Use "{ks_funding}" EXACTLY - do not change this number
+- Do NOT convert to yen. Do NOT round. Do NOT estimate.
+"""
+            else:
+                kickstarter_data_section = """
+=== KICKSTARTER DATA (NOT AVAILABLE) ===
+Kickstarter campaign data could not be retrieved at this time.
+
+FOR SECTIONS 2 AND 3:
+- Section 2 (Price): Write "Price information could not be retrieved. Please refer to the Kickstarter page directly: [URL]"
+- Section 3 (Total Funding): Write "Funding data was not available at the time of this report. Please check the campaign page for current figures: [URL]"
+
+DO NOT INVENT ANY NUMBERS. DO NOT GUESS PRICES OR FUNDING AMOUNTS.
+"""
+
             # ユーザープロンプト（レポート部分のみ生成を依頼）
             combined_prompt = f"""[PRODUCT ANALYSIS REQUEST]
 {translated_prompt}
 {section_limit_instruction}
+{kickstarter_data_section}
+
 [JAPANESE MARKET RESEARCH DATA - THIS IS THE ONLY SOURCE OF TRUTH]
 {translated_market_data}
 {industry_data_section}
 
-=== CRITICAL: DATA INTEGRITY RULES ===
+=== CRITICAL: DATA INTEGRITY RULES (VIOLATION = IMMEDIATE REJECTION) ===
 
-**ABSOLUTE RULE: ONLY USE NUMBERS FROM THE DATA ABOVE**
+**ABSOLUTE RULE: ONLY USE NUMBERS EXPLICITLY PROVIDED ABOVE**
 
 The market research data above contains REAL numbers retrieved from actual websites.
 You MUST use these EXACT numbers - do not round, estimate, or convert them.
 
-1. KICKSTARTER DATA:
-   - Look for "Kickstarter funding amount:" and "Kickstarter backers:" in the data above
-   - If it says "$606,041" - write exactly "$606,041", NOT "5,000,000 yen" or "approximately 600,000 dollars"
-   - If it says "2,903 backers" - write exactly "2,903 backers"
-   - Do NOT convert dollars to yen unless the original data is in yen
-   - If no Kickstarter data is shown, write: "Kickstarter campaign data was not available at the time of this report."
+1. KICKSTARTER DATA (MOST IMPORTANT):
+   - The KICKSTARTER DATA section above shows the EXACT funding amount and backer count
+   - If it shows "FUNDING AMOUNT: $89,991" → write "$89,991" in your report
+   - If it shows "NOT AVAILABLE" → write that data was not available, DO NOT INVENT A NUMBER
+   - NEVER write amounts like "¥10,000,000" or "$50,000" unless that EXACT number appears above
+   - Do NOT convert dollars to yen
+   - Do NOT round numbers
+   - Do NOT estimate or approximate
 
-2. MAKUAKE/CAMPFIRE DATA:
+2. WHAT HAPPENS IF YOU INVENT DATA:
+   - Writing "$50,000" when the data shows "$89,991" = REJECTED
+   - Writing "¥15,000" as a price when no price data exists = REJECTED
+   - Writing "¥10,000,000" as funding when data shows "NOT AVAILABLE" = REJECTED
+   - ANY number not in the data above = REJECTED
+
+3. MAKUAKE/CAMPFIRE DATA:
    - ONLY mention products that appear in the data above with their FULL URLs
    - If a funding amount is shown (e.g., "4,629,102円"), use that EXACT number WITH the URL
    - If no funding amount is shown, do NOT guess - just mention the product exists with its URL
 
-3. INDUSTRY STATISTICS:
+4. INDUSTRY STATISTICS:
    - You may use statistics from the [VERIFIED INDUSTRY STATISTICS] section above
    - ALWAYS cite the source when using these statistics (e.g., "According to PR TIMES 2024...")
    - Do NOT invent industry statistics - only use what is provided
-
-4. FORBIDDEN - THESE WILL CAUSE REPORT REJECTION:
-   - Converting currencies (e.g., turning "$606,041" into "about 90 million yen")
-   - Inventing prices like "15,000 yen" or "starting at 15,000 yen"
-   - Made-up funding totals like "5,000,000 yen" or "up to 10,000,000 yen"
-   - Any number that does NOT appear in the market research data above
-   - Generic phrases like "products in this category typically sell for X yen"
-   - Unsourced industry statistics (if not in the VERIFIED section, do NOT mention specific numbers)
 
 === OUTPUT FORMAT RULES ===
 1. Write in ENGLISH ONLY (no Japanese characters)
