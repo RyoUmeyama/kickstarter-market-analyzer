@@ -5,6 +5,7 @@ Kickstarter市場分析レポート自動生成
 """
 
 import os
+import time
 from dotenv import load_dotenv
 from sheets_client import GoogleSheetsClient
 from report_generator import ReportGenerator
@@ -74,6 +75,12 @@ def main():
 
     # 各行を処理
     for i, row_data in enumerate(unprocessed_rows, 1):
+        # 2番目以降のアイテムを処理する前に遅延を入れる（Kickstarterのレート制限対策）
+        if i > 1:
+            delay_seconds = 10
+            print(f"\n⏳ Kickstarterレート制限対策のため {delay_seconds} 秒待機中...")
+            time.sleep(delay_seconds)
+
         print("\n" + "=" * 80)
         print(f"処理中 ({i}/{len(unprocessed_rows)})")
         print("=" * 80)
