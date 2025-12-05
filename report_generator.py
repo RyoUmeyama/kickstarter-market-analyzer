@@ -784,33 +784,41 @@ Write in English only. No markdown formatting."""
         """
         import re
 
-        # https://が欠落しているURLを修正（スペースや行頭の後）
+        # https://が欠落しているURLを包括的に修正
+        # 否定先読みでhttps://やhttp://が既にある場合はスキップ
+
         # kickstarter.com → https://www.kickstarter.com
-        text = re.sub(r'(?<=\s)kickstarter\.com', r'https://www.kickstarter.com', text)
-        text = re.sub(r'^kickstarter\.com', r'https://www.kickstarter.com', text, flags=re.MULTILINE)
         # www.kickstarter.com → https://www.kickstarter.com
-        text = re.sub(r'(?<=\s)www\.kickstarter\.com', r'https://www.kickstarter.com', text)
-        text = re.sub(r'^www\.kickstarter\.com', r'https://www.kickstarter.com', text, flags=re.MULTILINE)
+        text = re.sub(
+            r'(?<!https://)(?<!http://)(?<!/)(?:www\.)?kickstarter\.com(/[^\s<>"\']*)?',
+            r'https://www.kickstarter.com\1',
+            text
+        )
 
         # makuake.com → https://www.makuake.com
-        text = re.sub(r'(?<=\s)makuake\.com', r'https://www.makuake.com', text)
-        text = re.sub(r'^makuake\.com', r'https://www.makuake.com', text, flags=re.MULTILINE)
-        text = re.sub(r'(?<=\s)www\.makuake\.com', r'https://www.makuake.com', text)
-        text = re.sub(r'^www\.makuake\.com', r'https://www.makuake.com', text, flags=re.MULTILINE)
+        # www.makuake.com → https://www.makuake.com
+        text = re.sub(
+            r'(?<!https://)(?<!http://)(?<!/)(?:www\.)?makuake\.com(/[^\s<>"\']*)?',
+            r'https://www.makuake.com\1',
+            text
+        )
 
         # camp-fire.jp → https://camp-fire.jp
-        text = re.sub(r'(?<=\s)camp-fire\.jp', r'https://camp-fire.jp', text)
-        text = re.sub(r'^camp-fire\.jp', r'https://camp-fire.jp', text, flags=re.MULTILINE)
+        text = re.sub(
+            r'(?<!https://)(?<!http://)(?<!/)camp-fire\.jp(/[^\s<>"\']*)?',
+            r'https://camp-fire.jp\1',
+            text
+        )
 
         # 重複したhttps://を修正
         text = re.sub(r'https://https://', r'https://', text)
         text = re.sub(r'https://www\.https://', r'https://', text)
 
-        # URLの末尾のピリオドを削除（文末の場合）
-        text = re.sub(r'(https://[^\s<>"]+)\.(?=\s|$)', r'\1', text)
+        # URLの末尾のピリオドやカンマを削除
+        text = re.sub(r'(https://[^\s<>"\']+)[.,](?=[\s<>"\']|$)', r'\1', text)
 
-        # URLの末尾に余計な文字が付いている場合を修正
-        text = re.sub(r'(https://[^\s<>"]+?)(,\s*(?:demonstrating|indicating|showing|which))', r'\1\2', text)
+        # 余分なwww.www.を修正
+        text = re.sub(r'https://www\.www\.', r'https://www.', text)
 
         return text
 
