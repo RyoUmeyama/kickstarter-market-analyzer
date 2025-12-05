@@ -224,14 +224,14 @@ class GoogleSheetsClient:
         text = text.replace('>', '&gt;')
 
         # URLを<a>タグでリンク化
-        # URLパターン: http:// または https:// で始まり、特定の文字で終端
-        # 終端文字: 空白、改行、<、>、"、'、)、）、。、、、」、』、】、）、全角スペース
-        url_pattern = r'(https?://[^\s<>\"\'\)\）。、」』】\u3000]+)'
+        # URLパターン: http:// または https:// で始まり、ASCII文字のみ（日本語などの非ASCIIは含まない）
+        # URLに含まれる有効な文字: a-zA-Z0-9, -, _, ., ~, :, /, ?, #, [, ], @, !, $, &, ', (, ), *, +, ,, ;, =, %
+        url_pattern = r'(https?://[a-zA-Z0-9\-._~:/?#\[\]@!$&\'()*+,;=%]+)'
 
         def replace_url(match):
             url = match.group(1)
-            # URLの末尾から不要な記号を除去（.,;:など）
-            while url and url[-1] in '.,;:':
+            # URLの末尾から不要な記号を除去（.,;:,など）
+            while url and url[-1] in '.,;:,':
                 url = url[:-1]
             return f'<a href="{url}">{url}</a>'
 
