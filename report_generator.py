@@ -33,6 +33,21 @@ class ReportGenerator:
             self.api_available = False
             self.market_searcher = None
 
+    def _contains_japanese(self, text):
+        """
+        テキストに日本語文字が含まれているかチェック
+
+        Args:
+            text (str): チェックするテキスト
+
+        Returns:
+            bool: 日本語が含まれている場合True
+        """
+        import re
+        # ひらがな、カタカナ、漢字をチェック
+        japanese_pattern = r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]'
+        return bool(re.search(japanese_pattern, text))
+
     def _extract_section_count(self, prompt):
         """
         プロンプトから分析項目数を抽出
@@ -235,13 +250,18 @@ RULES:
                 print(f"  ⚠️ No {{{{レポート}}}} placeholder found in template")
 
             # テンプレート部分を英語に翻訳（日本語が含まれている場合）
-            print(f"  🌐 Translating template parts to English...")
-            if template_before and template_before.strip():
+            # 最適化: 日本語文字が含まれている場合のみ翻訳
+            print(f"  🌐 Checking if translation is needed...")
+            if template_before and template_before.strip() and self._contains_japanese(template_before):
                 template_before = self._translate_to_english(template_before)
                 print(f"    ✓ Template before placeholder translated")
-            if template_after and template_after.strip():
+            else:
+                print(f"    ✓ Template before placeholder: no translation needed")
+            if template_after and template_after.strip() and self._contains_japanese(template_after):
                 template_after = self._translate_to_english(template_after)
                 print(f"    ✓ Template after placeholder translated")
+            else:
+                print(f"    ✓ Template after placeholder: no translation needed")
 
             # 市場調査：類似製品を検索
             market_research_data = ""
@@ -274,11 +294,16 @@ RULES:
                 print("=" * 60 + "\n")
 
             # === 日本語プロンプトを英語に翻訳（API送信用） ===
-            print(f"  🌐 Translating prompts to English...")
+            # 最適化: 日本語が含まれている場合のみ翻訳API呼び出し
+            print(f"  🌐 Checking prompts for translation needs...")
 
-            # 分析指示（A3）を英訳
-            translated_prompt = self._translate_to_english(processed_prompt)
-            print(f"    ✓ Analysis instructions translated")
+            # 分析指示（A3）を英訳（日本語が含まれている場合のみ）
+            if self._contains_japanese(processed_prompt):
+                translated_prompt = self._translate_to_english(processed_prompt)
+                print(f"    ✓ Analysis instructions translated")
+            else:
+                translated_prompt = processed_prompt
+                print(f"    ✓ Analysis instructions: no translation needed")
 
             # 市場調査データは翻訳しない（URLと数値が破損するため）
             # そのまま使用し、AIに処理させる
@@ -288,17 +313,25 @@ RULES:
             else:
                 translated_market_data = ""
 
-            # システム設定（G2）を英訳
+            # システム設定（G2）を英訳（日本語が含まれている場合のみ）
             if system_settings and system_settings.strip():
-                translated_system_settings = self._translate_to_english(system_settings)
-                print(f"    ✓ System settings translated")
+                if self._contains_japanese(system_settings):
+                    translated_system_settings = self._translate_to_english(system_settings)
+                    print(f"    ✓ System settings translated")
+                else:
+                    translated_system_settings = system_settings
+                    print(f"    ✓ System settings: no translation needed")
             else:
                 translated_system_settings = ""
 
-            # 共通プロンプト（A2）を英訳
+            # 共通プロンプト（A2）を英訳（日本語が含まれている場合のみ）
             if common_prompt and common_prompt.strip():
-                translated_common_prompt = self._translate_to_english(common_prompt)
-                print(f"    ✓ Common prompt translated")
+                if self._contains_japanese(common_prompt):
+                    translated_common_prompt = self._translate_to_english(common_prompt)
+                    print(f"    ✓ Common prompt translated")
+                else:
+                    translated_common_prompt = common_prompt
+                    print(f"    ✓ Common prompt: no translation needed")
             else:
                 translated_common_prompt = ""
 
@@ -438,15 +471,11 @@ BASIC OUTPUT RULES:
             if section_count > 0:
                 generated_report = self._enforce_section_limit(generated_report, section_count)
 
-            # 2段階目: レポートを洗練化（AI臭さを除去）
-            print(f"  🔄 Refining report to remove AI-sounding phrases...")
-            refined_report = self._refine_report(generated_report)
-            print(f"  ✓ Report refined ({len(refined_report)} chars)")
-
-            # 3段階目: 品質検証と修正
-            print(f"  🔄 Validating and fixing report quality...")
-            validated_report = self._validate_and_fix_report(refined_report, translated_market_data)
-            print(f"  ✓ Report validated ({len(validated_report)} chars)")
+            # 最適化: リファインと検証のAPI呼び出しを削除（処理時間を大幅に短縮）
+            # 以前は3段階（生成→リファイン→検証）だったが、1段階（生成のみ）に変更
+            # 品質はシステムプロンプトで担保
+            validated_report = generated_report
+            print(f"  ⚡ Skipping refine/validate steps for speed optimization")
 
             # デバッグ用：生成されたレポートの最初の部分を出力
             print("\n" + "=" * 60)
