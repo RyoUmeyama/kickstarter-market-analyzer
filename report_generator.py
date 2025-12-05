@@ -44,8 +44,11 @@ class ReportGenerator:
             int: 分析項目数（抽出できない場合は0）
         """
         import re
-        # ①②③④などの丸数字を検出
-        circled_numbers = re.findall(r'[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮]', prompt)
+        # ①②③④などの丸数字を検出（通常の丸数字 + Dingbat丸数字）
+        # 通常: ①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮ (U+2460-U+246E)
+        # Dingbat: ➀➁➂➃➄➅➆➇➈➉ (U+2780-U+2789) - sans-serif
+        # Dingbat: ➊➋➌➍➎➏➐➑➒➓ (U+278A-U+2793) - negative circled
+        circled_numbers = re.findall(r'[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮➀➁➂➃➄➅➆➇➈➉➊➋➌➍➎➏➐➑➒➓]', prompt)
         if circled_numbers:
             return len(circled_numbers)
 
