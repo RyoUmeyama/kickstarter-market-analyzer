@@ -75,10 +75,11 @@ def main():
 
     # 各行を処理
     for i, row_data in enumerate(unprocessed_rows, 1):
-        # 2番目以降のアイテムを処理する前に遅延を入れる（Kickstarterのレート制限対策）
+        # 2番目以降のアイテムを処理する前に遅延を入れる（念のため）
+        # ブラウザリセットで主な対策済みだが、安全マージンとして10秒待機
         if i > 1:
-            delay_seconds = 60
-            print(f"\n⏳ Kickstarterレート制限対策のため {delay_seconds} 秒待機中...")
+            delay_seconds = 10
+            print(f"\n⏳ 次の処理まで {delay_seconds} 秒待機中...")
             time.sleep(delay_seconds)
 
         print("\n" + "=" * 80)
