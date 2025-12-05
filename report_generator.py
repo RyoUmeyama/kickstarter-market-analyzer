@@ -373,6 +373,9 @@ BASIC OUTPUT RULES:
             # 後処理: 件名行を削除、マークダウンリンクをプレーンテキストに変換
             generated_report = self._clean_generated_body(validated_report)
 
+            # 最終URL修正
+            generated_report = self._fix_urls(generated_report)
+
             # テンプレートの前半 + 生成されたレポート + テンプレートの後半を結合
             # 各部分の間に適切な改行を追加
             parts = []
@@ -384,6 +387,10 @@ BASIC OUTPUT RULES:
                 parts.append(template_after.lstrip())
 
             final_body = '\n\n'.join(parts)
+
+            # 最終的なURL修正（結合後）
+            final_body = self._fix_urls(final_body)
+
             print(f"  ✓ Final body assembled ({len(final_body)} chars)")
 
             return final_body
