@@ -59,6 +59,7 @@ class ReportGenerator:
     def _extract_section_count(self, prompt):
         """
         プロンプトから分析項目数を抽出
+        丸数字の最大値をセクション数として認識（重複する丸数字は無視）
 
         Args:
             prompt (str): テンプレートのプロンプト（A3）
@@ -71,14 +72,29 @@ class ReportGenerator:
         # 通常: ①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮ (U+2460-U+246E)
         # Dingbat: ➀➁➂➃➄➅➆➇➈➉ (U+2780-U+2789) - sans-serif
         # Dingbat: ➊➋➌➍➎➏➐➑➒➓ (U+278A-U+2793) - negative circled
+
+        # 丸数字と対応する数値のマッピング
+        circled_to_number = {
+            '①': 1, '②': 2, '③': 3, '④': 4, '⑤': 5,
+            '⑥': 6, '⑦': 7, '⑧': 8, '⑨': 9, '⑩': 10,
+            '⑪': 11, '⑫': 12, '⑬': 13, '⑭': 14, '⑮': 15,
+            '➀': 1, '➁': 2, '➂': 3, '➃': 4, '➄': 5,
+            '➅': 6, '➆': 7, '➇': 8, '➈': 9, '➉': 10,
+            '➊': 1, '➋': 2, '➌': 3, '➍': 4, '➎': 5,
+            '➏': 6, '➐': 7, '➑': 8, '➒': 9, '➓': 10,
+        }
+
         circled_numbers = re.findall(r'[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮➀➁➂➃➄➅➆➇➈➉➊➋➌➍➎➏➐➑➒➓]', prompt)
         if circled_numbers:
-            return len(circled_numbers)
+            # 丸数字を数値に変換し、最大値を取得（セクション数として認識）
+            max_section = max(circled_to_number.get(c, 0) for c in circled_numbers)
+            return max_section
 
         # 1. 2. 3. などの番号付きリストを検出
         numbered_items = re.findall(r'^\s*(\d+)\s*[.．、）\)]', prompt, re.MULTILINE)
         if numbered_items:
-            return len(numbered_items)
+            # 最大値を取得
+            return max(int(n) for n in numbered_items)
 
         return 0
 
