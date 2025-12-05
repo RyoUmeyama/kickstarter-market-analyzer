@@ -6,7 +6,7 @@ on:
       status:
         description: '抽出するステータス'
         required: true
-        default: '②無返信2回目　要送信'
+        default: '⑤好返信　要レポ送信'
         type: choice
         options:
           - '（空白＝新規）'
@@ -17,7 +17,7 @@ on:
       limit:
         description: '処理件数の上限'
         required: true
-        default: '30'
+        default: '2'
         type: choice
         options:
           - '2'
