@@ -79,7 +79,7 @@ RULES:
             print(f"  ⚠️ Translation failed, using original text: {e}")
             return text
 
-    def generate_report(self, template, kickstarter_url, product_name='', common_prompt='', system_settings='', translation_rules='', output_format_rules=''):
+    def generate_report(self, template, kickstarter_url, product_name='', common_prompt='', system_settings='', translation_rules='', output_format_rules='', industry_data=''):
         """
         テンプレートに基づいてレポートを生成
 
@@ -92,6 +92,7 @@ RULES:
         主要な設定（設定シートから読み込み）:
         - A2: 共通プロンプト（レポートの質・文体 - お客様編集可能）
         - G2: システム設定（テンプレート保持ルール、データ正確性ルール - 変更不可）
+        - L列: 業界データ（市場統計）
 
         Args:
             template (dict): テンプレート設定
@@ -101,6 +102,7 @@ RULES:
             system_settings (str, optional): システム設定（設定シートG2から読み込み）
             translation_rules (str, optional): 翻訳ルール（設定シートH2から読み込み）
             output_format_rules (str, optional): 出力形式ルール（設定シートI2から読み込み）
+            industry_data (str, optional): 業界データ（設定シートL列から読み込み）
 
         Returns:
             dict: 生成されたレポート
@@ -148,7 +150,8 @@ RULES:
                 kickstarter_url,
                 product_name,
                 common_prompt,  # 共通プロンプト（設定シートA2）
-                system_settings  # システム設定（設定シートG2）
+                system_settings,  # システム設定（設定シートG2）
+                industry_data  # 業界データ（設定シートL列）
             )
             # 日本語本文は空文字列（Google SheetsのGOOGLETRANSLATE関数で翻訳、名前はSUBSTITUTEで英語に戻す）
             jp_body = ''
@@ -160,7 +163,7 @@ RULES:
             'en_body': en_body
         }
 
-    def _generate_from_prompt(self, prompt, body_template, kickstarter_url, product_name, common_prompt='', system_settings=''):
+    def _generate_from_prompt(self, prompt, body_template, kickstarter_url, product_name, common_prompt='', system_settings='', industry_data=''):
         """
         日本語プロンプト + 本文テンプレートからOpenAI APIで完全な英語本文を生成
 
@@ -171,6 +174,7 @@ RULES:
             product_name (str): 製品名/メーカー名
             common_prompt (str, optional): 共通プロンプト（設定シートA2から読み込み）
             system_settings (str, optional): システム設定（設定シートG2から読み込み）
+            industry_data (str, optional): 業界データ（設定シートL列から読み込み）
 
         Returns:
             str: 生成された完全な英語本文（レポート込み）
@@ -265,12 +269,24 @@ RULES:
             else:
                 translated_common_prompt = ""
 
+            # 業界データセクションを構築
+            industry_data_section = ""
+            if industry_data:
+                industry_data_section = f"""
+
+[VERIFIED INDUSTRY STATISTICS - USE THESE AS REFERENCE]
+{industry_data}
+
+These are verified industry statistics with sources. You may reference these when discussing market context.
+Always cite the source when using these statistics."""
+
             # ユーザープロンプト（レポート部分のみ生成を依頼）
             combined_prompt = f"""[PRODUCT ANALYSIS REQUEST]
 {translated_prompt}
 
 [JAPANESE MARKET RESEARCH DATA - THIS IS THE ONLY SOURCE OF TRUTH]
 {translated_market_data}
+{industry_data_section}
 
 === CRITICAL: DATA INTEGRITY RULES ===
 
@@ -291,12 +307,18 @@ You MUST use these EXACT numbers - do not round, estimate, or convert them.
    - If a funding amount is shown (e.g., "4,629,102円"), use that EXACT number WITH the URL
    - If no funding amount is shown, do NOT guess - just mention the product exists with its URL
 
-3. FORBIDDEN - THESE WILL CAUSE REPORT REJECTION:
+3. INDUSTRY STATISTICS:
+   - You may use statistics from the [VERIFIED INDUSTRY STATISTICS] section above
+   - ALWAYS cite the source when using these statistics (e.g., "According to PR TIMES 2024...")
+   - Do NOT invent industry statistics - only use what is provided
+
+4. FORBIDDEN - THESE WILL CAUSE REPORT REJECTION:
    - Converting currencies (e.g., turning "$606,041" into "about 90 million yen")
    - Inventing prices like "15,000 yen" or "starting at 15,000 yen"
    - Made-up funding totals like "5,000,000 yen" or "up to 10,000,000 yen"
    - Any number that does NOT appear in the market research data above
    - Generic phrases like "products in this category typically sell for X yen"
+   - Unsourced industry statistics (if not in the VERIFIED section, do NOT mention specific numbers)
 
 === OUTPUT FORMAT RULES ===
 1. Write in ENGLISH ONLY (no Japanese characters)
@@ -304,7 +326,8 @@ You MUST use these EXACT numbers - do not round, estimate, or convert them.
 3. Write in natural flowing paragraphs
 4. Only use blank lines between major sections (numbered sections like 1. 2. 3.)
 5. For product references, ALWAYS include the full URL from the data above
-6. After each section title, add a line break before the content"""
+6. After each section title, add a line break before the content
+7. When citing industry statistics, include the source in parentheses"""
 
             print(f"  🤖 Calling OpenAI API with translated prompts...")
 

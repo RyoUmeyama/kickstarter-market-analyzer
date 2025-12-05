@@ -551,6 +551,53 @@ class GoogleSheetsClient:
             print(f'⚠️  データルールの読み込みエラー: {err}')
             return ''
 
+    def get_industry_data(self):
+        """
+        設定シートから業界データ（市場統計）を読み取る
+
+        設定シートの構造:
+        - L1: "業界データ"（ヘッダー）
+        - L2: "項目", M2: "数値", N2: "ソース"
+        - L3:N以降: 実際のデータ
+
+        Returns:
+            str: 業界データをフォーマットした文字列
+                 例: "市場規模: 432億円（出典: PR TIMES 2024）"
+        """
+        try:
+            # 設定シートのL2:N50を読み込み
+            rows = self.read_rows(sheet_name='設定', column_range='L2:N50')
+
+            if not rows or len(rows) < 2:
+                print('⚠️  業界データが設定されていません')
+                return ''
+
+            # ヘッダー行をスキップ（L2:M2:N2）、L3から開始
+            industry_data_lines = []
+            for row in rows[1:]:  # 最初の行はヘッダー
+                if len(row) >= 2 and row[0]:  # 項目と数値がある場合
+                    item = row[0].strip()
+                    value = row[1].strip() if len(row) > 1 else ''
+                    source = row[2].strip() if len(row) > 2 else ''
+
+                    if value:
+                        if source:
+                            industry_data_lines.append(f"- {item}: {value}（出典: {source}）")
+                        else:
+                            industry_data_lines.append(f"- {item}: {value}")
+
+            if industry_data_lines:
+                industry_data = "\n".join(industry_data_lines)
+                print(f'✓ 業界データを読み込みました（{len(industry_data_lines)}項目）')
+                return industry_data
+            else:
+                print('⚠️  業界データが空です')
+                return ''
+
+        except HttpError as err:
+            print(f'⚠️  業界データの読み込みエラー: {err}')
+            return ''
+
     def get_unprocessed_rows(self):
         """
         未処理の行を取得（H列（jp_body）が空、または短い文字列のみの行）

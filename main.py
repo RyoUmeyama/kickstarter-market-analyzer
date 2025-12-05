@@ -50,12 +50,13 @@ def main():
     print()
 
     # 共通プロンプトとシステム設定を取得
-    # 主要な設定: A2（共通プロンプト）、G2（システム設定）
+    # 主要な設定: A2（共通プロンプト）、G2（システム設定）、L列（業界データ）
     print("設定を読み込み中...")
     common_prompt = sheets_client.get_common_prompt()
     system_settings = sheets_client.get_system_settings()
     translation_rules = sheets_client.get_translation_rules()
     output_format_rules = sheets_client.get_output_format_rules()
+    industry_data = sheets_client.get_industry_data()
     print()
 
     # 未処理の行を取得
@@ -101,7 +102,8 @@ def main():
                 common_prompt=common_prompt,
                 system_settings=system_settings,
                 translation_rules=translation_rules,
-                output_format_rules=output_format_rules
+                output_format_rules=output_format_rules,
+                industry_data=industry_data
             )
 
             # Google Sheetsに書き込み
