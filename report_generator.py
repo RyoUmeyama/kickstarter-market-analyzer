@@ -33,6 +33,29 @@ class ReportGenerator:
             self.api_available = False
             self.market_searcher = None
 
+    def _extract_section_count(self, prompt):
+        """
+        プロンプトから分析項目数を抽出
+
+        Args:
+            prompt (str): テンプレートのプロンプト（A3）
+
+        Returns:
+            int: 分析項目数（抽出できない場合は0）
+        """
+        import re
+        # ①②③④などの丸数字を検出
+        circled_numbers = re.findall(r'[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮]', prompt)
+        if circled_numbers:
+            return len(circled_numbers)
+
+        # 1. 2. 3. などの番号付きリストを検出
+        numbered_items = re.findall(r'^\s*(\d+)\s*[.．、）\)]', prompt, re.MULTILINE)
+        if numbered_items:
+            return len(numbered_items)
+
+        return 0
+
     def _translate_to_english(self, text):
         """
         日本語テキストを英語に翻訳（API送信用）
@@ -188,6 +211,13 @@ RULES:
             processed_prompt = self._replace_placeholders(prompt, kickstarter_url, product_name)
             processed_body_template = self._replace_placeholders(body_template, kickstarter_url, product_name)
 
+            # テンプレートからセクション数を抽出
+            section_count = self._extract_section_count(prompt)
+            if section_count > 0:
+                print(f"  📊 Template requires exactly {section_count} sections")
+            else:
+                print(f"  ⚠️ Could not detect section count from template")
+
             # テンプレートを{{レポート}}で分割（前半と後半を保持）
             report_placeholder = '{{レポート}}'
             if report_placeholder in processed_body_template:
@@ -280,10 +310,36 @@ RULES:
 These are verified industry statistics with sources. You may reference these when discussing market context.
 Always cite the source when using these statistics."""
 
+            # セクション数制限の指示を構築
+            section_limit_instruction = ""
+            if section_count > 0:
+                section_limit_instruction = f"""
+=== CRITICAL: SECTION COUNT LIMIT (ABSOLUTE RULE) ===
+**YOU MUST GENERATE EXACTLY {section_count} SECTIONS**
+
+The template specifies {section_count} analysis items (①②③④ = sections 1, 2, 3, 4).
+- Generate sections numbered 1. through {section_count}. ONLY
+- DO NOT generate section {section_count + 1}. or higher - this will cause IMMEDIATE REJECTION
+- Each section should address ONE item from the template
+- If the template has items ①②③④, your output is:
+  1. [Topic from ①]
+  2. [Topic from ②]
+  3. [Topic from ③]
+  4. [Topic from ④]
+  STOP HERE - no section 5 or beyond
+
+FORBIDDEN EXTRA SECTIONS (DO NOT GENERATE):
+- PSE認証/PSE Certification (unless specifically requested in template items)
+- 独占販売契約/Exclusive Sales Agreement
+- 卸売りの可能性/Wholesale Potential
+- Any topic NOT in the original {section_count} template items
+
+"""
+
             # ユーザープロンプト（レポート部分のみ生成を依頼）
             combined_prompt = f"""[PRODUCT ANALYSIS REQUEST]
 {translated_prompt}
-
+{section_limit_instruction}
 [JAPANESE MARKET RESEARCH DATA - THIS IS THE ONLY SOURCE OF TRUTH]
 {translated_market_data}
 {industry_data_section}
@@ -374,6 +430,10 @@ BASIC OUTPUT RULES:
 
             generated_report = response.choices[0].message.content.strip()
             print(f"  ✓ Report content generated via OpenAI API ({len(generated_report)} chars)")
+
+            # セクション数を強制的に制限（AIが指示を守らない場合のバックアップ）
+            if section_count > 0:
+                generated_report = self._enforce_section_limit(generated_report, section_count)
 
             # 2段階目: レポートを洗練化（AI臭さを除去）
             print(f"  🔄 Refining report to remove AI-sounding phrases...")
@@ -794,6 +854,59 @@ Write in English only. No markdown formatting."""
         except Exception as e:
             print(f"  ⚠️ Fix failed, using original with URL fixes: {e}")
             return self._fix_urls(report)
+
+    def _enforce_section_limit(self, report, max_sections):
+        """
+        レポートのセクション数を強制的に制限
+
+        Args:
+            report (str): 生成されたレポート
+            max_sections (int): 最大セクション数
+
+        Returns:
+            str: セクション数が制限されたレポート
+        """
+        import re
+
+        # セクションの開始位置を検出（1. 2. 3. などのパターン）
+        # 行頭または空白の後に数字+ピリオドが来るパターン
+        section_pattern = r'(?:^|\n)(\d+)\.\s+'
+        matches = list(re.finditer(section_pattern, report))
+
+        if not matches:
+            print(f"  ⚠️ No numbered sections found in report")
+            return report
+
+        # 現在のセクション数をカウント
+        section_numbers = [int(m.group(1)) for m in matches]
+        current_sections = max(section_numbers) if section_numbers else 0
+
+        print(f"  📊 Found {len(matches)} section markers, max section number: {current_sections}")
+
+        if current_sections <= max_sections:
+            print(f"  ✓ Section count OK ({current_sections} <= {max_sections})")
+            return report
+
+        # 制限を超えるセクションを削除
+        print(f"  ⚠️ Trimming sections: {current_sections} -> {max_sections}")
+
+        # max_sections + 1 以降のセクションの開始位置を見つける
+        cutoff_position = None
+        for match in matches:
+            section_num = int(match.group(1))
+            if section_num > max_sections:
+                cutoff_position = match.start()
+                # 改行の前の位置を取得
+                if report[cutoff_position] == '\n':
+                    cutoff_position += 0  # そのまま
+                break
+
+        if cutoff_position is not None:
+            trimmed_report = report[:cutoff_position].rstrip()
+            print(f"  ✓ Report trimmed from {len(report)} to {len(trimmed_report)} chars")
+            return trimmed_report
+
+        return report
 
     def _fix_urls(self, text):
         """
