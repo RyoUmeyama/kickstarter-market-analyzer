@@ -533,7 +533,7 @@ class MarketSearcher:
             if ks_info.get('backers_count'):
                 funding_info += f"\nバッカー数: {ks_info['backers_count']}人"
 
-            prompt = f"""以下のKickstarter製品について、日本のクラウドファンディング（Makuake）で
+            prompt = f"""以下のKickstarter製品について、日本のクラウドファンディング（Makuake、CAMPFIRE）で
 類似製品を検索するための情報を提供してください。
 
 【Kickstarter製品情報】
@@ -550,9 +550,13 @@ URL: {kickstarter_url}
     "filter_keywords": ["フィルタ用キーワード1", "フィルタ用キーワード2"]
 }}
 
-【重要】:
-1. keywords: 日本語の検索キーワード（2つまで）
-2. category: 日本語カテゴリ名
+【重要なルール】:
+1. keywords: 日本語の検索キーワード（2つ）
+   - 一般的で汎用的なキーワードを使用すること
+   - 例: 「テンカラ竿」より「テンカラ」「フライロッド」のような一般的な単語
+   - 例: 「AI夜間カメラ」より「ナイトビジョン」「暗視カメラ」のような検索されやすい単語
+2. category: 製品の一般的なカテゴリ名（日本語、1-3単語）
+   - 例: 「釣り具」「カメラ」「アウトドア用品」「ガジェット」など
 3. filter_keywords: 類似製品を判別するためのキーワード（2つまで）
 """
 
@@ -851,6 +855,11 @@ URL: {kickstarter_url}
         """
         類似製品を総合検索
 
+        検索戦略：
+        1. GPT生成キーワード（日本語）で検索
+        2. カテゴリ名で検索（フォールバック）
+        3. 結果が少ない場合、追加のフォールバックキーワードで検索
+
         重要：架空のデータは絶対に生成しない
         """
         print(f"  🔍 類似製品を検索中...")
@@ -867,8 +876,19 @@ URL: {kickstarter_url}
         all_makuake_projects = []
         all_campfire_projects = []
 
+        # 検索キーワードリストを構築（重複排除）
+        search_keywords = []
+        for kw in keywords[:2]:
+            if kw and kw not in search_keywords:
+                search_keywords.append(kw)
+
+        # カテゴリも検索キーワードに追加（GPT生成キーワードと異なる場合）
+        if category and category != '製品' and category not in search_keywords:
+            search_keywords.append(category)
+            print(f"     カテゴリ検索追加: {category}")
+
         # 2. 各キーワードでMakuakeとCAMPFIREを検索
-        for keyword in keywords[:2]:
+        for keyword in search_keywords[:3]:  # 最大3キーワード
             # Makuake検索
             makuake_results = self.search_makuake(keyword)
             if makuake_results.get('found'):
@@ -882,6 +902,11 @@ URL: {kickstarter_url}
                 for p in campfire_results['projects']:
                     if not any(existing['url'] == p['url'] for existing in all_campfire_projects):
                         all_campfire_projects.append(p)
+
+            # 十分な結果が得られたら早期終了
+            if len(all_makuake_projects) >= 3 and len(all_campfire_projects) >= 3:
+                print(f"     十分な結果を取得、検索終了")
+                break
 
         all_makuake_projects = all_makuake_projects[:5]
         all_campfire_projects = all_campfire_projects[:5]
@@ -902,7 +927,7 @@ URL: {kickstarter_url}
 
         return {
             "category": category,
-            "keywords": keywords,
+            "keywords": search_keywords,  # 実際に使用したキーワードを返す
             "kickstarter_info": ks_info,
             "makuake": {
                 "found": len(all_makuake_projects) > 0,

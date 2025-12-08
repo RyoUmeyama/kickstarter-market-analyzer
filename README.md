@@ -21,13 +21,15 @@ Kickstarter製品の日本市場参入提案メールを自動生成するシス
    - **日本語プロンプト→英語翻訳→API送信**（API精度向上のため）
 
 4. **日本市場の類似製品検索**
-   - SeleniumによるMakuake自動検索
-   - 検索結果（製品名、資金調達額、URL、支援者数）をレポートに挿入
+   - PlaywrightによるMakuake・CAMPFIRE自動検索
+   - 検索結果（製品名、資金調達額、URL、達成率）をレポートに挿入
    - **実データのみ使用**（架空のデータは生成しない）
+   - **多段階検索戦略**: GPT生成キーワード → カテゴリ名でフォールバック検索
 
 5. **データ正確性の保証**
-   - Makuakeから取得した実データのみをレポートに使用
+   - Makuake・CAMPFIREから取得した実データのみをレポートに使用
    - 架空の製品名・URL・金額は生成禁止
+   - **価格情報**: Kickstarterページへの参照を促す（捏造防止）
    - 予測は実データを根拠として計算
 
 6. **スプレッドシートでのプロンプト管理**
@@ -191,7 +193,7 @@ kickstarter-market-analyzer/
 ├── extract_from_management.py      # 管理表からの抽出スクリプト
 ├── sheets_client.py                # Google Sheets連携
 ├── report_generator.py             # レポート生成（OpenAI API）
-├── market_search.py                # 類似製品検索（Selenium）
+├── market_search.py                # 類似製品検索（Playwright）
 ├── sync_workflow_options.py        # 選択肢同期スクリプト
 ├── requirements.txt                # 依存関係
 └── README.md                       # 本ドキュメント
@@ -237,7 +239,7 @@ Google Sheets書き込み
 - Python 3.11+
 - Google Sheets API (service account認証)
 - OpenAI API (gpt-4o-mini)
-- Selenium WebDriver (headless Chrome)
+- Playwright (headless Chromium)
 - GitHub Actions
 
 ### 処理時間の目安
