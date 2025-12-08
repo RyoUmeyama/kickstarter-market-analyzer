@@ -526,14 +526,15 @@ If data is NOT shown above, it means it was NOT retrieved - DO NOT INVENT IT.
    - ALWAYS cite the source when using these statistics (e.g., "According to PR TIMES 2024...")
    - Do NOT invent industry statistics - only use what is provided
 
-6. ESTIMATES AND PROJECTIONS (CRITICAL):
+6. ESTIMATES AND PROJECTIONS (ABSOLUTE RULE - VIOLATION = REJECTION):
    - ALL estimates MUST be based on concrete data provided above
-   - For crowdfunding targets: Use similar product data from Makuake/CAMPFIRE as basis
-     Example: "Based on Duovox Ultra Pro's 4,629,102 yen success, we estimate a target of 5,000,000 yen"
-   - For wholesale prices: Do NOT estimate specific prices - write "wholesale price to be discussed separately"
-   - For sales projections: Only use ratios/percentages based on similar product performance
-   - NEVER write specific yen amounts without citing the source data
-   - If no similar product data exists, write "specific estimates require further market research"
+   - For crowdfunding targets in Section 4:
+     * If similar product data EXISTS: "Based on [Product Name]'s [exact amount] yen success (URL), we estimate a target of [calculated amount] yen"
+     * If NO similar product data: "The specific fundraising target will be determined after detailed market research, as no directly comparable products were found in Japanese crowdfunding"
+   - NEVER write "¥10,000,000" or "10 million yen" without citing a specific similar product as the basis
+   - For wholesale prices: Do NOT estimate specific prices - write "wholesale pricing will be discussed separately based on volume"
+   - For sales projections: Only use ratios/percentages based on similar product performance with citation
+   - If no similar product data exists in the MARKET RESEARCH DATA above, you MUST write "specific estimates require further market research" - do NOT invent numbers
 
 === OUTPUT FORMAT RULES ===
 1. Write in ENGLISH ONLY (no Japanese characters)
