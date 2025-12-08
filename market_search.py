@@ -856,9 +856,8 @@ URL: {kickstarter_url}
         類似製品を総合検索
 
         検索戦略：
-        1. GPT生成キーワード（日本語）で検索
-        2. カテゴリ名で検索（フォールバック）
-        3. 結果が少ない場合、追加のフォールバックキーワードで検索
+        - GPT生成キーワード（日本語）で検索
+        - 具体的なキーワードのみ使用（汎用的なカテゴリ名は使用しない）
 
         重要：架空のデータは絶対に生成しない
         """
@@ -876,19 +875,14 @@ URL: {kickstarter_url}
         all_makuake_projects = []
         all_campfire_projects = []
 
-        # 検索キーワードリストを構築（重複排除）
+        # 検索キーワードリストを構築（重複排除、GPT生成キーワードのみ使用）
         search_keywords = []
         for kw in keywords[:2]:
             if kw and kw not in search_keywords:
                 search_keywords.append(kw)
 
-        # カテゴリも検索キーワードに追加（GPT生成キーワードと異なる場合）
-        if category and category != '製品' and category not in search_keywords:
-            search_keywords.append(category)
-            print(f"     カテゴリ検索追加: {category}")
-
         # 2. 各キーワードでMakuakeとCAMPFIREを検索
-        for keyword in search_keywords[:3]:  # 最大3キーワード
+        for keyword in search_keywords[:2]:  # 最大2キーワード
             # Makuake検索
             makuake_results = self.search_makuake(keyword)
             if makuake_results.get('found'):
@@ -902,11 +896,6 @@ URL: {kickstarter_url}
                 for p in campfire_results['projects']:
                     if not any(existing['url'] == p['url'] for existing in all_campfire_projects):
                         all_campfire_projects.append(p)
-
-            # 十分な結果が得られたら早期終了
-            if len(all_makuake_projects) >= 3 and len(all_campfire_projects) >= 3:
-                print(f"     十分な結果を取得、検索終了")
-                break
 
         all_makuake_projects = all_makuake_projects[:5]
         all_campfire_projects = all_campfire_projects[:5]
@@ -927,7 +916,7 @@ URL: {kickstarter_url}
 
         return {
             "category": category,
-            "keywords": search_keywords,  # 実際に使用したキーワードを返す
+            "keywords": keywords,
             "kickstarter_info": ks_info,
             "makuake": {
                 "found": len(all_makuake_projects) > 0,
