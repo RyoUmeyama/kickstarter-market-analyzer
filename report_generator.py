@@ -400,6 +400,9 @@ FORBIDDEN EXTRA SECTIONS (DO NOT GENERATE):
             ks_info = search_results.get('kickstarter_info', {}) if search_results else {}
             ks_funding = ks_info.get('funding_amount', '')
             ks_backers = ks_info.get('backers_count', 0)
+            ks_goal = ks_info.get('goal_amount', '')
+            ks_percent = ks_info.get('percent_funded', 0)
+            ks_days_left = ks_info.get('days_left', '')
             ks_data_source = ks_info.get('data_source', '')
             ks_rewards = ks_info.get('rewards', [])
 
@@ -415,20 +418,44 @@ FORBIDDEN EXTRA SECTIONS (DO NOT GENERATE):
 
             # Kickstarterデータの明示的なセクションを構築
             if ks_funding and ks_funding.strip():
+                # 取得できたデータのみをリストアップ
+                ks_data_lines = [
+                    f"FUNDING AMOUNT: {ks_funding}",
+                    f"BACKERS COUNT: {ks_backers}",
+                ]
+                # goal_amount, percent_funded, days_leftは取得できた場合のみ追加
+                if ks_goal and ks_goal.strip():
+                    ks_data_lines.append(f"GOAL AMOUNT: {ks_goal}")
+                if ks_percent and ks_percent > 0:
+                    ks_data_lines.append(f"PERCENT FUNDED: {ks_percent}%")
+                if ks_days_left and ks_days_left.strip():
+                    ks_data_lines.append(f"DAYS LEFT: {ks_days_left}")
+                ks_data_lines.append(f"DATA SOURCE: {ks_data_source}")
+
+                ks_data_text = "\n".join(ks_data_lines)
+
                 kickstarter_data_section = f"""
-=== KICKSTARTER DATA (USE EXACTLY AS SHOWN) ===
-FUNDING AMOUNT: {ks_funding}
-BACKERS COUNT: {ks_backers}
-DATA SOURCE: {ks_data_source}
+=== KICKSTARTER DATA (USE EXACTLY AS SHOWN - NO ESTIMATION ALLOWED) ===
+{ks_data_text}
 
 {rewards_section}
 
-RULES FOR USING THIS DATA:
-- Section 2 (Price): Write "For detailed pricing and available reward tiers, please visit: [Kickstarter URL]"
-- Section 3 (Total Funding): Use "{ks_funding}" with {ks_backers} backers EXACTLY as shown
+ABSOLUTE RULES FOR SECTION 3 (TOTAL FUNDING):
+- Use ONLY the data shown above - NOTHING MORE
+- If FUNDING AMOUNT is shown: use that EXACT number
+- If BACKERS COUNT is shown: use that EXACT number
+- If GOAL AMOUNT is NOT shown above: DO NOT WRITE ANY GOAL AMOUNT - it was not retrieved
+- If PERCENT FUNDED is NOT shown above: DO NOT WRITE ANY PERCENTAGE - it was not retrieved
+- If DAYS LEFT is NOT shown above: DO NOT WRITE ANY DAYS REMAINING - it was not retrieved
+- NEVER ESTIMATE OR GUESS missing data - if it's not listed above, DO NOT INCLUDE IT
 - Do NOT convert dollars to yen
 - Do NOT round or estimate numbers
-- Do NOT invent prices - only reference the Kickstarter page for pricing details
+
+VIOLATION EXAMPLES (WILL BE REJECTED):
+- Writing "funding goal was $50,000" when GOAL AMOUNT is not listed above = REJECTED
+- Writing "300% funded" when PERCENT FUNDED is not listed above = REJECTED
+- Writing "10 days remaining" when DAYS LEFT is not listed above = REJECTED
+- ANY number not explicitly shown in the data above = REJECTED
 """
             else:
                 kickstarter_data_section = f"""
@@ -456,19 +483,23 @@ DO NOT INVENT ANY NUMBERS OR PRICES.
 
 === CRITICAL: DATA INTEGRITY RULES (VIOLATION = IMMEDIATE REJECTION) ===
 
-**ABSOLUTE RULE: ONLY USE NUMBERS EXPLICITLY PROVIDED ABOVE**
+**ABSOLUTE RULE: ONLY USE DATA EXPLICITLY PROVIDED ABOVE - NO ESTIMATION OR GUESSING**
 
 The market research data above contains REAL numbers retrieved from actual websites.
 You MUST use these EXACT numbers - do not round, estimate, or convert them.
+If data is NOT shown above, it means it was NOT retrieved - DO NOT INVENT IT.
 
 1. KICKSTARTER DATA (MOST IMPORTANT):
-   - The KICKSTARTER DATA section above shows the EXACT funding amount and backer count
-   - If it shows "FUNDING AMOUNT: $89,991" → write "$89,991" in your report
-   - If it shows "NOT AVAILABLE" → write that data was not available, DO NOT INVENT A NUMBER
-   - NEVER write amounts like "¥10,000,000" or "$50,000" unless that EXACT number appears above
+   - The KICKSTARTER DATA section above shows ONLY the data that was successfully retrieved
+   - Use ONLY the exact values shown - nothing more, nothing less
+   - If "FUNDING AMOUNT" is shown: use that EXACT number
+   - If "BACKERS COUNT" is shown: use that EXACT number
+   - If "GOAL AMOUNT" is NOT shown: DO NOT WRITE ANY GOAL - it was not retrieved
+   - If "PERCENT FUNDED" is NOT shown: DO NOT WRITE ANY PERCENTAGE - it was not retrieved
+   - If "DAYS LEFT" is NOT shown: DO NOT WRITE ANY REMAINING TIME - it was not retrieved
    - Do NOT convert dollars to yen
    - Do NOT round numbers
-   - Do NOT estimate or approximate
+   - Do NOT estimate or approximate ANYTHING
 
 2. PRICING DATA (CRITICAL FOR SECTION 2):
    - Price information is NOT automatically extracted from Kickstarter
@@ -478,11 +509,12 @@ You MUST use these EXACT numbers - do not round, estimate, or convert them.
    - This ensures accuracy as Kickstarter prices vary by tier and may change
 
 3. WHAT HAPPENS IF YOU INVENT DATA:
-   - Writing "$50,000" when the data shows "$89,991" = REJECTED
+   - Writing any GOAL AMOUNT when it's not listed above = REJECTED
+   - Writing any PERCENTAGE when it's not listed above = REJECTED
+   - Writing any DAYS REMAINING when it's not listed above = REJECTED
    - Writing "Early Bird $199" when no reward data exists = REJECTED
    - Writing "¥15,000" as a price when no price data exists = REJECTED
-   - Writing "¥10,000,000" as funding when data shows "NOT AVAILABLE" = REJECTED
-   - ANY number not in the data above = REJECTED
+   - ANY number or data not explicitly shown in the data above = REJECTED
 
 4. MAKUAKE/CAMPFIRE DATA:
    - ONLY mention products that appear in the data above with their FULL URLs
