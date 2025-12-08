@@ -528,10 +528,14 @@ If data is NOT shown above, it means it was NOT retrieved - DO NOT INVENT IT.
 
 6. ESTIMATES AND PROJECTIONS (ABSOLUTE RULE - VIOLATION = REJECTION):
    - ALL estimates MUST be based on concrete data provided above
+   - IMPORTANT: Check the MARKET RESEARCH DATA section for Makuake/CAMPFIRE products BEFORE writing Section 4
    - For crowdfunding targets in Section 4:
-     * If similar product data EXISTS: "Based on [Product Name]'s [exact amount] yen success (URL), we estimate a target of [calculated amount] yen"
-     * If NO similar product data: "The specific fundraising target will be determined after detailed market research, as no directly comparable products were found in Japanese crowdfunding"
-   - NEVER write "¥10,000,000" or "10 million yen" without citing a specific similar product as the basis
+     * If Makuake/CAMPFIRE product data EXISTS in the market research above:
+       Write: "Based on [Product Name]'s [exact amount] yen success (URL), we estimate a target of [similar or higher amount] yen"
+       Example: If Duovox raised 4,629,102 yen, write "Based on Duovox Ultra Pro's 4,629,102 yen success, we estimate a target of approximately 5,000,000 yen"
+     * If NO Makuake/CAMPFIRE product data exists above:
+       Write: "The specific fundraising target will be determined after detailed market research, as no directly comparable products were found in Japanese crowdfunding"
+   - NEVER write generic amounts like "¥10,000,000" without citing a specific product from the data above
    - For wholesale prices: Do NOT estimate specific prices - write "wholesale pricing will be discussed separately based on volume"
    - For sales projections: Only use ratios/percentages based on similar product performance with citation
    - If no similar product data exists in the MARKET RESEARCH DATA above, you MUST write "specific estimates require further market research" - do NOT invent numbers
