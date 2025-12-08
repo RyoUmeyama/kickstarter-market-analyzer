@@ -483,6 +483,10 @@ DO NOT INVENT ANY NUMBERS OR PRICES.
 
 === CRITICAL: DATA INTEGRITY RULES (VIOLATION = IMMEDIATE REJECTION) ===
 
+**STEP 1: READ ALL DATA FIRST**
+Before writing ANY section, you MUST read and understand ALL the market research data above.
+Specifically, check if Makuake/CAMPFIRE products exist - if they do, you MUST use them as basis for Section 4 estimates.
+
 **ABSOLUTE RULE: ONLY USE DATA EXPLICITLY PROVIDED ABOVE - NO ESTIMATION OR GUESSING**
 
 The market research data above contains REAL numbers retrieved from actual websites.
