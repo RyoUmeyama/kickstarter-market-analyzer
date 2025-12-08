@@ -290,11 +290,19 @@ class MarketSearcher:
                         print(f"       調達額: {result['funding_amount']}")
                         break
 
-            # 目標金額
-            goal_match = re.search(r'pledged of\s*([\$€£¥][\d,]+)', page_text)
-            if goal_match:
-                result['goal_amount'] = goal_match.group(1)
-                print(f"       目標額: {result['goal_amount']}")
+            # 目標金額（複数パターンで検索）
+            goal_patterns = [
+                r'pledged of\s*([\$€£¥][\d,]+)',  # "pledged of $50,000"
+                r'([\$€£¥][\d,]+)\s*goal',  # "$50,000 goal"
+                r'goal[:\s]*([\$€£¥][\d,]+)',  # "goal: $50,000"
+                r'of\s*([\$€£¥][\d,]+)\s*goal',  # "of $50,000 goal"
+            ]
+            for pattern in goal_patterns:
+                goal_match = re.search(pattern, page_text, re.I)
+                if goal_match:
+                    result['goal_amount'] = goal_match.group(1)
+                    print(f"       目標額: {result['goal_amount']}")
+                    break
 
             # バッカー数
             backers_match = re.search(r'([\d,]+)\s*(?:backers?|人のバッカー)', page_text, re.I)

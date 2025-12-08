@@ -526,6 +526,15 @@ If data is NOT shown above, it means it was NOT retrieved - DO NOT INVENT IT.
    - ALWAYS cite the source when using these statistics (e.g., "According to PR TIMES 2024...")
    - Do NOT invent industry statistics - only use what is provided
 
+6. ESTIMATES AND PROJECTIONS (CRITICAL):
+   - ALL estimates MUST be based on concrete data provided above
+   - For crowdfunding targets: Use similar product data from Makuake/CAMPFIRE as basis
+     Example: "Based on Duovox Ultra Pro's 4,629,102 yen success, we estimate a target of 5,000,000 yen"
+   - For wholesale prices: Do NOT estimate specific prices - write "wholesale price to be discussed separately"
+   - For sales projections: Only use ratios/percentages based on similar product performance
+   - NEVER write specific yen amounts without citing the source data
+   - If no similar product data exists, write "specific estimates require further market research"
+
 === OUTPUT FORMAT RULES ===
 1. Write in ENGLISH ONLY (no Japanese characters)
 2. Use PLAIN TEXT only (no markdown: no *, #, -, bullet points, etc.)
