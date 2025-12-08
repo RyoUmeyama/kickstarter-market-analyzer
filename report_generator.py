@@ -403,61 +403,45 @@ FORBIDDEN EXTRA SECTIONS (DO NOT GENERATE):
             ks_data_source = ks_info.get('data_source', '')
             ks_rewards = ks_info.get('rewards', [])
 
-            # リワード/価格情報をフォーマット
-            rewards_section = ""
-            if ks_rewards:
-                rewards_lines = ["AVAILABLE REWARD TIERS (USE THESE EXACT PRICES):"]
-                for i, reward in enumerate(ks_rewards, 1):
-                    price = reward.get('price', '')
-                    title = reward.get('title', '')
-                    is_early = reward.get('is_early_bird', False)
-                    backers = reward.get('backers', 0)
-
-                    line = f"  {i}. {price}"
-                    if is_early:
-                        line += " [EARLY BIRD]"
-                    if title:
-                        line += f" - {title}"
-                    if backers:
-                        line += f" ({backers} backers)"
-                    rewards_lines.append(line)
-                rewards_section = "\n".join(rewards_lines)
-            else:
-                rewards_section = """REWARD/PRICE DATA: NOT AVAILABLE
-- Price information could not be retrieved from Kickstarter
-- DO NOT INVENT PRICES like "$150" or "$199"
-- Write: "For pricing details, please visit the Kickstarter page: [URL]" """
+            # 価格情報のセクション（常に「取得不可」として扱う - 汎用性を優先）
+            # 注意: Kickstarterのページ構造は頻繁に変更されるため、
+            # 価格情報の自動抽出は信頼性が低く、数百のURLを処理する際に問題となる。
+            # そのため、価格情報は常にKickstarterページへの参照を促す方針とする。
+            rewards_section = """REWARD/PRICE DATA: NOT AUTOMATICALLY EXTRACTED
+- Pricing information varies by campaign and reward tier
+- DO NOT INVENT specific prices like "$150", "$199", or "Early Bird $XXX"
+- For Section 2 (Pricing), write: "For detailed pricing and reward tiers, please visit the Kickstarter page: [include the URL]"
+- This ensures accuracy as prices may change during the campaign"""
 
             # Kickstarterデータの明示的なセクションを構築
             if ks_funding and ks_funding.strip():
                 kickstarter_data_section = f"""
-=== KICKSTARTER DATA (MANDATORY - USE EXACTLY AS SHOWN) ===
+=== KICKSTARTER DATA (USE EXACTLY AS SHOWN) ===
 FUNDING AMOUNT: {ks_funding}
 BACKERS COUNT: {ks_backers}
 DATA SOURCE: {ks_data_source}
 
 {rewards_section}
 
-YOU MUST USE THESE EXACT VALUES IN YOUR REPORT.
-- For Section 2 (Price): Use ONLY the prices listed in AVAILABLE REWARD TIERS above
-  - If rewards are listed, use those exact prices
-  - If rewards show "NOT AVAILABLE", write "For pricing details, please visit the Kickstarter page"
-- For Section 3 (Total Funding): Use "{ks_funding}" EXACTLY - do not change this number
-- Do NOT convert to yen. Do NOT round. Do NOT estimate.
-- Do NOT invent prices like "$150" or "Early Bird $199" unless they appear in REWARD TIERS above.
+RULES FOR USING THIS DATA:
+- Section 2 (Price): Write "For detailed pricing and available reward tiers, please visit: [Kickstarter URL]"
+- Section 3 (Total Funding): Use "{ks_funding}" with {ks_backers} backers EXACTLY as shown
+- Do NOT convert dollars to yen
+- Do NOT round or estimate numbers
+- Do NOT invent prices - only reference the Kickstarter page for pricing details
 """
             else:
                 kickstarter_data_section = f"""
 === KICKSTARTER DATA (NOT AVAILABLE) ===
-Kickstarter campaign data could not be retrieved at this time.
+Campaign data could not be retrieved automatically.
 
 {rewards_section}
 
 FOR SECTIONS 2 AND 3:
-- Section 2 (Price): Write "Price information could not be retrieved. Please refer to the Kickstarter page directly: [URL]"
-- Section 3 (Total Funding): Write "Funding data was not available at the time of this report. Please check the campaign page for current figures: [URL]"
+- Section 2 (Price): Write "For pricing details, please refer to the Kickstarter page directly"
+- Section 3 (Total Funding): Write "Please check the campaign page for current funding figures"
 
-DO NOT INVENT ANY NUMBERS. DO NOT GUESS PRICES OR FUNDING AMOUNTS.
+DO NOT INVENT ANY NUMBERS OR PRICES.
 """
 
             # ユーザープロンプト（レポート部分のみ生成を依頼）
@@ -486,13 +470,12 @@ You MUST use these EXACT numbers - do not round, estimate, or convert them.
    - Do NOT round numbers
    - Do NOT estimate or approximate
 
-2. REWARD/PRICE DATA (CRITICAL FOR SECTION 2):
-   - ONLY use prices from the "AVAILABLE REWARD TIERS" section above
-   - If reward tiers are listed (e.g., "$149 [EARLY BIRD]"), use those EXACT prices
-   - If reward section shows "NOT AVAILABLE":
-     → DO NOT write "Early Bird price of $150" or any made-up price
-     → Instead write: "For detailed pricing, please visit the Kickstarter page: [URL]"
-   - Writing "$199" or "$150" when no reward data exists = REJECTED
+2. PRICING DATA (CRITICAL FOR SECTION 2):
+   - Price information is NOT automatically extracted from Kickstarter
+   - DO NOT write specific prices like "Early Bird $150" or "$199 USD"
+   - DO NOT invent or guess any pricing figures
+   - ALWAYS write: "For detailed pricing and reward tiers, please visit the Kickstarter page: [URL]"
+   - This ensures accuracy as Kickstarter prices vary by tier and may change
 
 3. WHAT HAPPENS IF YOU INVENT DATA:
    - Writing "$50,000" when the data shows "$89,991" = REJECTED
