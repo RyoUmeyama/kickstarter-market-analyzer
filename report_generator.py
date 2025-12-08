@@ -401,6 +401,32 @@ FORBIDDEN EXTRA SECTIONS (DO NOT GENERATE):
             ks_funding = ks_info.get('funding_amount', '')
             ks_backers = ks_info.get('backers_count', 0)
             ks_data_source = ks_info.get('data_source', '')
+            ks_rewards = ks_info.get('rewards', [])
+
+            # リワード/価格情報をフォーマット
+            rewards_section = ""
+            if ks_rewards:
+                rewards_lines = ["AVAILABLE REWARD TIERS (USE THESE EXACT PRICES):"]
+                for i, reward in enumerate(ks_rewards, 1):
+                    price = reward.get('price', '')
+                    title = reward.get('title', '')
+                    is_early = reward.get('is_early_bird', False)
+                    backers = reward.get('backers', 0)
+
+                    line = f"  {i}. {price}"
+                    if is_early:
+                        line += " [EARLY BIRD]"
+                    if title:
+                        line += f" - {title}"
+                    if backers:
+                        line += f" ({backers} backers)"
+                    rewards_lines.append(line)
+                rewards_section = "\n".join(rewards_lines)
+            else:
+                rewards_section = """REWARD/PRICE DATA: NOT AVAILABLE
+- Price information could not be retrieved from Kickstarter
+- DO NOT INVENT PRICES like "$150" or "$199"
+- Write: "For pricing details, please visit the Kickstarter page: [URL]" """
 
             # Kickstarterデータの明示的なセクションを構築
             if ks_funding and ks_funding.strip():
@@ -410,15 +436,22 @@ FUNDING AMOUNT: {ks_funding}
 BACKERS COUNT: {ks_backers}
 DATA SOURCE: {ks_data_source}
 
+{rewards_section}
+
 YOU MUST USE THESE EXACT VALUES IN YOUR REPORT.
-- For Section 2 (Price): Look for pledge/reward tiers in the market data
+- For Section 2 (Price): Use ONLY the prices listed in AVAILABLE REWARD TIERS above
+  - If rewards are listed, use those exact prices
+  - If rewards show "NOT AVAILABLE", write "For pricing details, please visit the Kickstarter page"
 - For Section 3 (Total Funding): Use "{ks_funding}" EXACTLY - do not change this number
 - Do NOT convert to yen. Do NOT round. Do NOT estimate.
+- Do NOT invent prices like "$150" or "Early Bird $199" unless they appear in REWARD TIERS above.
 """
             else:
-                kickstarter_data_section = """
+                kickstarter_data_section = f"""
 === KICKSTARTER DATA (NOT AVAILABLE) ===
 Kickstarter campaign data could not be retrieved at this time.
+
+{rewards_section}
 
 FOR SECTIONS 2 AND 3:
 - Section 2 (Price): Write "Price information could not be retrieved. Please refer to the Kickstarter page directly: [URL]"
@@ -453,18 +486,27 @@ You MUST use these EXACT numbers - do not round, estimate, or convert them.
    - Do NOT round numbers
    - Do NOT estimate or approximate
 
-2. WHAT HAPPENS IF YOU INVENT DATA:
+2. REWARD/PRICE DATA (CRITICAL FOR SECTION 2):
+   - ONLY use prices from the "AVAILABLE REWARD TIERS" section above
+   - If reward tiers are listed (e.g., "$149 [EARLY BIRD]"), use those EXACT prices
+   - If reward section shows "NOT AVAILABLE":
+     → DO NOT write "Early Bird price of $150" or any made-up price
+     → Instead write: "For detailed pricing, please visit the Kickstarter page: [URL]"
+   - Writing "$199" or "$150" when no reward data exists = REJECTED
+
+3. WHAT HAPPENS IF YOU INVENT DATA:
    - Writing "$50,000" when the data shows "$89,991" = REJECTED
+   - Writing "Early Bird $199" when no reward data exists = REJECTED
    - Writing "¥15,000" as a price when no price data exists = REJECTED
    - Writing "¥10,000,000" as funding when data shows "NOT AVAILABLE" = REJECTED
    - ANY number not in the data above = REJECTED
 
-3. MAKUAKE/CAMPFIRE DATA:
+4. MAKUAKE/CAMPFIRE DATA:
    - ONLY mention products that appear in the data above with their FULL URLs
    - If a funding amount is shown (e.g., "4,629,102円"), use that EXACT number WITH the URL
    - If no funding amount is shown, do NOT guess - just mention the product exists with its URL
 
-4. INDUSTRY STATISTICS:
+5. INDUSTRY STATISTICS:
    - You may use statistics from the [VERIFIED INDUSTRY STATISTICS] section above
    - ALWAYS cite the source when using these statistics (e.g., "According to PR TIMES 2024...")
    - Do NOT invent industry statistics - only use what is provided

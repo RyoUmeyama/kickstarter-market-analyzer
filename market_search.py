@@ -319,6 +319,12 @@ class MarketSearcher:
                 result['days_left'] = f"{days_match.group(1)}日"
                 print(f"       残り: {result['days_left']}")
 
+            # リワード/価格情報を取得
+            rewards = self._extract_rewards_from_page(soup, page_text)
+            if rewards:
+                result['rewards'] = rewards
+                print(f"       リワード: {len(rewards)}件取得")
+
             # データソースを記録
             if result['funding_amount'] or result['backers_count']:
                 result['data_source'] = f'Kickstarter ({proxy_label})'
@@ -336,6 +342,148 @@ class MarketSearcher:
                     pass
 
         return result
+
+    def _extract_rewards_from_page(self, soup, page_text):
+        """
+        Kickstarterページからリワード/価格情報を抽出
+
+        Args:
+            soup: BeautifulSoupオブジェクト
+            page_text: ページのテキスト
+
+        Returns:
+            list: リワード情報のリスト
+                [
+                    {
+                        "title": "リワード名",
+                        "price": "$XXX",
+                        "description": "説明",
+                        "backers": バッカー数,
+                        "is_early_bird": True/False,
+                        "is_limited": True/False,
+                        "available": "残りXX"
+                    },
+                    ...
+                ]
+        """
+        rewards = []
+
+        try:
+            # パターン1: 新しいKickstarterのリワードカード構造
+            # data-reward-id属性を持つ要素を検索
+            reward_cards = soup.select('[data-reward-id], .pledge-card, .reward-card, [class*="RewardCard"]')
+
+            if not reward_cards:
+                # パターン2: pledge__info クラスを持つ要素
+                reward_cards = soup.select('.pledge__info, .pledge-selectable, [class*="pledge"]')
+
+            if not reward_cards:
+                # パターン3: 金額パターンから推測
+                # "Pledge $XXX or more" パターン
+                pledge_matches = re.findall(
+                    r'(?:Pledge|Back it for|Back for)\s*\$(\d+(?:,\d{3})*)\s*(?:or more|USD)?[^$]*?([A-Z][^$\n]{10,100})',
+                    page_text,
+                    re.IGNORECASE
+                )
+                for price, desc in pledge_matches[:10]:
+                    price_formatted = f"${price}"
+                    is_early = 'early' in desc.lower() or 'bird' in desc.lower()
+                    rewards.append({
+                        "title": desc.strip()[:80],
+                        "price": price_formatted,
+                        "description": "",
+                        "backers": 0,
+                        "is_early_bird": is_early,
+                        "is_limited": 'limited' in desc.lower(),
+                        "available": ""
+                    })
+
+            # リワードカードをパース
+            for card in reward_cards[:10]:
+                card_text = card.get_text(strip=True)
+
+                # 価格を抽出
+                price = ""
+                price_match = re.search(r'\$(\d+(?:,\d{3})*)', card_text)
+                if price_match:
+                    price = f"${price_match.group(1)}"
+                else:
+                    # 他の通貨もチェック
+                    price_match = re.search(r'([€£¥][\d,]+|[\d,]+\s*(?:USD|EUR|GBP|JPY))', card_text)
+                    if price_match:
+                        price = price_match.group(1)
+
+                if not price:
+                    continue
+
+                # タイトルを抽出（最初の意味のあるテキスト）
+                title = ""
+                title_elem = card.select_one('h2, h3, .pledge-amount, .reward-title, [class*="title"]')
+                if title_elem:
+                    title = title_elem.get_text(strip=True)
+                if not title:
+                    # 価格の前後のテキストを取得
+                    title_match = re.search(r'([A-Z][^$\n]{5,60})(?:\$|€|£)', card_text)
+                    if title_match:
+                        title = title_match.group(1).strip()
+
+                # 説明を抽出
+                description = ""
+                desc_elem = card.select_one('.pledge-description, .reward-description, [class*="description"], p')
+                if desc_elem:
+                    description = desc_elem.get_text(strip=True)[:200]
+
+                # バッカー数を抽出
+                backers = 0
+                backers_match = re.search(r'(\d+)\s*(?:backers?|supporters?)', card_text, re.I)
+                if backers_match:
+                    backers = int(backers_match.group(1))
+
+                # Early Bird判定
+                is_early_bird = bool(re.search(r'early\s*bird|super\s*early|限定|先着', card_text, re.I))
+
+                # 限定判定
+                is_limited = bool(re.search(r'limited|限定|残り\s*\d+', card_text, re.I))
+
+                # 残数を抽出
+                available = ""
+                available_match = re.search(r'(?:限定|Limited)\s*(\d+)|(\d+)\s*(?:left|remaining|残り)', card_text, re.I)
+                if available_match:
+                    num = available_match.group(1) or available_match.group(2)
+                    available = f"残り{num}"
+
+                rewards.append({
+                    "title": title[:80] if title else f"Pledge {price}",
+                    "price": price,
+                    "description": description,
+                    "backers": backers,
+                    "is_early_bird": is_early_bird,
+                    "is_limited": is_limited,
+                    "available": available
+                })
+
+            # 重複を除去（価格でユニーク化）
+            seen_prices = set()
+            unique_rewards = []
+            for r in rewards:
+                if r['price'] not in seen_prices:
+                    seen_prices.add(r['price'])
+                    unique_rewards.append(r)
+
+            # 価格順にソート
+            def extract_price_value(r):
+                match = re.search(r'[\d,]+', r.get('price', '0'))
+                if match:
+                    return int(match.group().replace(',', ''))
+                return 0
+
+            unique_rewards.sort(key=extract_price_value)
+
+            return unique_rewards[:5]  # 最大5件
+
+        except Exception as e:
+            print(f"       ⚠️ リワード抽出エラー: {e}")
+            return []
 
     def _fetch_kickstarter_info_kicktraq(self, kickstarter_url):
         """
@@ -907,8 +1055,10 @@ URL: {kickstarter_url}
             lines.append("- 資金調達額")
             lines.append("- バッカー数")
             lines.append("- 目標金額")
+            lines.append("- リワード/価格情報")
             lines.append("")
             lines.append("レポートではこれらのデータに言及しないでください。")
+            lines.append("価格については「Kickstarterページでご確認ください」と記載してください。")
             lines.append(f"製品URL: {ks_info.get('source_url', 'N/A')}")
         else:
             if ks_info.get('title'):
@@ -930,6 +1080,36 @@ URL: {kickstarter_url}
 
             if ks_info.get('data_source'):
                 lines.append(f"データソース: {ks_info['data_source']}")
+
+            # リワード/価格情報を追加
+            rewards = ks_info.get('rewards', [])
+            if rewards:
+                lines.append("")
+                lines.append("■ 利用可能なリワード/価格:")
+                for i, reward in enumerate(rewards, 1):
+                    price = reward.get('price', '')
+                    title = reward.get('title', '')
+                    is_early = reward.get('is_early_bird', False)
+                    is_limited = reward.get('is_limited', False)
+                    backers = reward.get('backers', 0)
+                    available = reward.get('available', '')
+
+                    reward_line = f"  {i}. {price}"
+                    if is_early:
+                        reward_line += " [Early Bird]"
+                    if is_limited:
+                        reward_line += " [限定]"
+                    if title:
+                        reward_line += f" - {title}"
+                    if backers:
+                        reward_line += f" ({backers}人が支援)"
+                    if available:
+                        reward_line += f" {available}"
+                    lines.append(reward_line)
+            else:
+                lines.append("")
+                lines.append("■ リワード/価格情報: 取得できませんでした")
+                lines.append("  → 価格については「詳細はKickstarterページでご確認ください」と記載してください")
 
             if ks_info.get('description'):
                 lines.append(f"\n製品説明:\n{ks_info['description'][:400]}")
