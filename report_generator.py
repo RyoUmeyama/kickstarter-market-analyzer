@@ -455,7 +455,12 @@ VIOLATION EXAMPLES (WILL BE REJECTED):
 - Writing "funding goal was $50,000" when GOAL AMOUNT is not listed above = REJECTED
 - Writing "300% funded" when PERCENT FUNDED is not listed above = REJECTED
 - Writing "10 days remaining" when DAYS LEFT is not listed above = REJECTED
-- ANY number not explicitly shown in the data above = REJECTED
+- Writing "campaign is ongoing" or "campaign period is ongoing" when campaign status is unknown = REJECTED
+- Writing "campaign has ended" when campaign status is unknown = REJECTED
+- ANY number or status not explicitly shown in the data above = REJECTED
+
+IMPORTANT: Do NOT write anything about campaign status (ongoing/ended/days remaining).
+Simply state the funding amount and backer count, then reference the Kickstarter URL for current status.
 """
             else:
                 kickstarter_data_section = f"""
