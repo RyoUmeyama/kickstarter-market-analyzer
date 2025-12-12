@@ -25,8 +25,15 @@ Kickstarter製品の日本市場参入提案メールを自動生成するシス
    - 検索結果（製品名、資金調達額、URL、達成率）をレポートに挿入
    - **実データのみ使用**（架空のデータは生成しない）
    - GPT生成の具体的なキーワードで検索（汎用的なカテゴリ名は使用しない）
+   - **CAMPFIRE**の海外IP制限に対応（Bright Dataプロキシ経由で日本IPからアクセス）
 
-5. **データ正確性の保証**
+5. **Kickstarterデータ取得**
+   - 直接接続（Playwright）でKickstarter製品情報を取得
+   - **Kicktraq**（サードパーティサイト）からのフォールバック取得
+   - タイトル、資金調達額、バッカー数、目標金額、達成率を自動抽出
+   - 取得失敗時は正直に「データ取得失敗」として報告
+
+6. **データ正確性の保証**
    - Makuake・CAMPFIREから取得した実データのみをレポートに使用
    - 架空の製品名・URL・金額は生成禁止
    - **価格情報**: Kickstarterページへの参照を促す（捏造防止）
@@ -34,35 +41,36 @@ Kickstarter製品の日本市場参入提案メールを自動生成するシス
    - **すべての予測・見積もりは類似製品の実データを根拠として提示**
    - 根拠となるデータがない場合は「詳細な市場調査が必要」と記載
 
-6. **スプレッドシートでのプロンプト管理**
+7. **スプレッドシートでのプロンプト管理**
    - 「設定」シートで共通プロンプト（A2）とシステム設定（G2）を管理
    - お客様がA2を編集することでレポートの質・スタイルを調整可能
    - コード変更なしでプロンプト調整が可能
+   - **業界データ**（L列）: 市場統計をソース付きで管理し、レポートに引用
 
-7. **自動翻訳対応**
+8. **自動翻訳対応**
    - Google SheetsのGOOGLETRANSLATE関数により英語→日本語を自動翻訳
    - **会社名・製品名は英語のまま保持**（SUBSTITUTE関数で自動処理）
 
-8. **テンプレート構造の保持**
+9. **テンプレート構造の保持**
    - `{{レポート}}`プレースホルダーでテンプレートを分割
    - 署名欄や参照情報など、プレースホルダー後の内容も確実に保持
    - AI生成レポートがテンプレート構造を破壊しない
 
-9. **URL表記の最適化**
+10. **URL表記の最適化**
    - URLは文中に自然に埋め込み（例: 「製品名は〇〇円を調達。詳細: https://...」）
    - 括弧でURLを囲まない（翻訳時の問題を回避）
    - 末尾の「情報源」セクションは自動削除
    - 偽URL（www.example.com等）は自動削除
 
-10. **HTMLメール対応**
-   - URLを`<a>`タグでクリック可能なリンクに自動変換
-   - 改行を`<br>`タグに変換
-   - Thunderbirdメールマージで一括送信可能
+11. **HTMLメール対応**
+    - URLを`<a>`タグでクリック可能なリンクに自動変換
+    - 改行を`<br>`タグに変換
+    - Thunderbirdメールマージで一括送信可能
 
-11. **プロマーケター視点のレポート**
-   - 15年以上の経験を持つシニアマーケティングコンサルタントとして分析
-   - 具体的で実行可能な戦略提案
-   - 実データに基づく売上予測
+12. **プロマーケター視点のレポート**
+    - 15年以上の経験を持つシニアマーケティングコンサルタントとして分析
+    - 具体的で実行可能な戦略提案
+    - 実データに基づく売上予測
 
 ## システム構成
 
@@ -95,6 +103,11 @@ CSV出力 → Thunderbirdメールマージ → 送信
 |------|------|------|
 | A2 | 共通プロンプト（レポートの質・スタイル） | ✓ 編集可 |
 | G2 | システム設定（テンプレート保持ルール） | ✓ 編集可 |
+| H2 | 翻訳ルール | ✓ 編集可 |
+| I2 | 出力形式ルール | ✓ 編集可 |
+| J2 | AIシステムプロンプト（人格設定） | ✓ 編集可 |
+| K2 | データルール（捏造禁止ルール） | ✓ 編集可 |
+| L列 | 業界データ（市場統計、ソース付き） | ✓ 編集可 |
 | C3:D以降 | ステータス→テンプレート対応表 | ✓ 編集可 |
 | E列 | 各ステータスの件数（自動計算） | - |
 
@@ -195,9 +208,12 @@ kickstarter-market-analyzer/
 ├── extract_from_management.py      # 管理表からの抽出スクリプト
 ├── sheets_client.py                # Google Sheets連携
 ├── report_generator.py             # レポート生成（OpenAI API）
-├── market_search.py                # 類似製品検索（Playwright）
+├── market_search.py                # 類似製品検索（Playwright + Bright Data）
+├── setup_industry_data.py          # 業界データ設定スクリプト
+├── update_settings.py              # 設定シート更新スクリプト
 ├── sync_workflow_options.py        # 選択肢同期スクリプト
 ├── requirements.txt                # 依存関係
+├── CLAUDE.md                       # プロジェクト固有のClaude設定
 └── README.md                       # 本ドキュメント
 ```
 
@@ -242,15 +258,23 @@ Google Sheets書き込み
 - Google Sheets API (service account認証)
 - OpenAI API (gpt-4o-mini)
 - Playwright (headless Chromium)
+- Bright Data (プロキシサービス、CAMPFIRE海外IP制限対応)
 - GitHub Actions
 
+### データ取得の優先順位
+
+1. **直接接続**（Playwright） - 無料
+2. **Kicktraq**（サードパーティ） - 無料、Kickstarter未インデックスの場合は不可
+3. **Bright Data プロキシ** - 有料、最後の手段
+
 ### 処理時間の目安
-- 1件あたり約1分（Makuake検索 + 翻訳 + レポート生成）
+- 1件あたり約1分（Kickstarter + Makuake/CAMPFIRE検索 + レポート生成）
 - 30件で約30分
 
 ### コスト目安
 - OpenAI API: 1回の処理で約3-5円（翻訳含む）
-- 月間100件処理: 約300-500円
+- Bright Data: 必要時のみ使用（CAMPFIRE海外IP制限時）
+- 月間100件処理: 約300-500円 + プロキシ使用分
 
 ## 開発者向け情報
 
@@ -269,6 +293,17 @@ git push origin main && git push client main
 ```
 
 **重要**: `client`（koki4117）にpushしないとワークフローに反映されません。
+
+### GitHub Secrets（koki4117リポジトリ）
+
+| Secret名 | 説明 |
+|----------|------|
+| SPREADSHEET_ID | Google SpreadsheetのID |
+| OPENAI_API_KEY | OpenAI APIキー |
+| GOOGLE_CREDENTIALS_JSON | サービスアカウントの認証情報JSON |
+| BRIGHT_DATA_USERNAME | Bright Dataのユーザー名（任意） |
+| BRIGHT_DATA_PASSWORD | Bright Dataのパスワード（任意） |
+| PAT_TOKEN | GitHub Personal Access Token |
 
 ### 日本語翻訳時の名前保持
 
