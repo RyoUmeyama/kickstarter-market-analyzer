@@ -70,7 +70,7 @@ class ReportGenerator:
             # Phase 1: データ収集
             print("\n📥 Phase 1: データ収集")
             collector = DataCollector()
-            raw_data = collector.collect(kickstarter_url)
+            raw_data = collector.collect_all(kickstarter_url)
 
             if not raw_data or raw_data.get('error'):
                 error_msg = raw_data.get('error', 'データ収集に失敗しました') if raw_data else 'データ収集に失敗しました'
