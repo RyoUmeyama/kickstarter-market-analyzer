@@ -120,6 +120,21 @@ class ReportGeneratorV2:
         # サンプルレポートを読み込み
         self.sample_report = self._load_sample_report()
 
+    def _safe_num(self, value, default=0):
+        """Noneや無効な値を安全に数値に変換"""
+        if value is None:
+            return default
+        if isinstance(value, (int, float)):
+            return value
+        if isinstance(value, str):
+            cleaned = ''.join(c for c in value if c.isdigit() or c == '.' or c == '-')
+            if cleaned:
+                try:
+                    return float(cleaned) if '.' in cleaned else int(cleaned)
+                except ValueError:
+                    return default
+        return default
+
     def _load_sample_report(self):
         """サンプルレポートをファイルから読み込む"""
         sample_path = Path(__file__).parent / "templates" / "sample_report_v2.md"
@@ -822,11 +837,11 @@ URL: {collected_data.get("meta", {}).get("kickstarter_url", "")}
 製品名: {ks_data.get("title", "不明")}
 説明: {ks_data.get("description", "なし")[:300]}
 カテゴリ: {ks_data.get("category", "不明")}
-調達額: ${ks_stats.get("funding_amount_usd", 0):,}（約{ks_stats.get("funding_amount_jpy", 0):,}円）
-目標額: ${ks_stats.get("goal_amount_usd", 0):,}（約{ks_stats.get("goal_amount_jpy", 0):,}円）
-達成率: {ks_stats.get("percent_funded", 0)}%
-バッカー数: {ks_stats.get("backers_count", 0):,}人
-平均Pledge: ${ks_stats.get("average_pledge_usd", 0):.2f}（約{ks_stats.get("average_pledge_jpy", 0):,}円）
+調達額: ${self._safe_num(ks_stats.get("funding_amount_usd")):,}（約{self._safe_num(ks_stats.get("funding_amount_jpy")):,}円）
+目標額: ${self._safe_num(ks_stats.get("goal_amount_usd")):,}（約{self._safe_num(ks_stats.get("goal_amount_jpy")):,}円）
+達成率: {self._safe_num(ks_stats.get("percent_funded"))}%
+バッカー数: {self._safe_num(ks_stats.get("backers_count")):,}人
+平均Pledge: ${self._safe_num(ks_stats.get("average_pledge_usd")):.2f}（約{self._safe_num(ks_stats.get("average_pledge_jpy")):,}円）
 キャンペーン状態: {ks_data.get("campaign_status", "不明")}
 出典: {ks_data.get("source_url", "")}
 
@@ -902,7 +917,7 @@ URL: {collected_data.get("meta", {}).get("kickstarter_url", "")}
             if mk_cat_products:
                 prompt += "\nMakuake（カテゴリ検索）:\n"
                 for p in mk_cat_products[:5]:
-                    prompt += f"  ・{p.get('title', '')[:50]} / 調達額:{p.get('funding_amount_jpy', 0):,}円 / {p.get('percent_funded', 0)}%達成\n"
+                    prompt += f"  ・{p.get('title', '')[:50]} / 調達額:{self._safe_num(p.get('funding_amount_jpy')):,}円 / {self._safe_num(p.get('percent_funded'))}%達成\n"
                     prompt += f"    キーワード: {p.get('search_keyword', '')} / URL: {p.get('url', '')}\n"
             else:
                 prompt += "\nMakuake（カテゴリ検索）: なし\n"
@@ -910,7 +925,7 @@ URL: {collected_data.get("meta", {}).get("kickstarter_url", "")}
             if cf_cat_products:
                 prompt += "\nCAMPFIRE（カテゴリ検索）:\n"
                 for p in cf_cat_products[:5]:
-                    prompt += f"  ・{p.get('title', '')[:50]} / 調達額:{p.get('funding_amount_jpy', 0):,}円 / {p.get('percent_funded', 0)}%達成\n"
+                    prompt += f"  ・{p.get('title', '')[:50]} / 調達額:{self._safe_num(p.get('funding_amount_jpy')):,}円 / {self._safe_num(p.get('percent_funded'))}%達成\n"
                     prompt += f"    キーワード: {p.get('search_keyword', '')} / URL: {p.get('url', '')}\n"
             else:
                 prompt += "\nCAMPFIRE（カテゴリ検索）: なし\n"
@@ -933,11 +948,11 @@ URL: {collected_data.get("meta", {}).get("kickstarter_url", "")}
         if fob_est and "error" not in fob_est:
             prompt += f"""
 【7. FOB（仕入単価）推定】
-MSRP（推定）: ${fob_est.get("msrp_usd", 0):.2f}（約{fob_est.get("msrp_jpy", 0):,}円）
+MSRP（推定）: ${self._safe_num(fob_est.get("msrp_usd")):.2f}（約{self._safe_num(fob_est.get("msrp_jpy")):,}円）
 MSRP根拠: {fob_est.get("msrp_source", "")}
-FOB楽観（40%）: ${fob_est.get("fob_low", {}).get("usd", 0):.2f}（約{fob_est.get("fob_low", {}).get("jpy", 0):,}円）
-FOB標準（47.5%）: ${fob_est.get("fob_mid", {}).get("usd", 0):.2f}（約{fob_est.get("fob_mid", {}).get("jpy", 0):,}円）
-FOB悲観（55%）: ${fob_est.get("fob_high", {}).get("usd", 0):.2f}（約{fob_est.get("fob_high", {}).get("jpy", 0):,}円）
+FOB楽観（40%）: ${self._safe_num(fob_est.get("fob_low", {}).get("usd")):.2f}（約{self._safe_num(fob_est.get("fob_low", {}).get("jpy")):,}円）
+FOB標準（47.5%）: ${self._safe_num(fob_est.get("fob_mid", {}).get("usd")):.2f}（約{self._safe_num(fob_est.get("fob_mid", {}).get("jpy")):,}円）
+FOB悲観（55%）: ${self._safe_num(fob_est.get("fob_high", {}).get("usd")):.2f}（約{self._safe_num(fob_est.get("fob_high", {}).get("jpy")):,}円）
 """
         else:
             prompt += "\n【7. FOB推定】\nデータ不足のため推定不可\n"
@@ -946,24 +961,24 @@ FOB悲観（55%）: ${fob_est.get("fob_high", {}).get("usd", 0):.2f}（約{fob_e
         if prices:
             prompt += "\n【8. 推奨販売価格（税込）】\n"
             for p in prices:
-                prompt += f"  {p['label']}: ¥{p['price_jpy']:,}\n"
+                prompt += f"  {p.get('label', '')}: ¥{self._safe_num(p.get('price_jpy')):,}\n"
 
         # 収支シミュレーション
         if sims:
             prompt += "\n【9. 収支シミュレーション（1台あたり）】\n"
             prompt += "| 価格タイプ | 仕入タイプ | 販売価格 | 仕入原価 | 粗利 | 利益率 |\n"
             for sim in sims:
-                prompt += f"| {sim['price_label']} | {sim['fob_label']} | ¥{sim['price_jpy']:,} | ¥{sim['fob_jpy']:,} | ¥{sim['gross_profit']:,} | {sim['profit_margin']}% |\n"
+                prompt += f"| {sim.get('price_label', '')} | {sim.get('fob_label', '')} | ¥{self._safe_num(sim.get('price_jpy')):,} | ¥{self._safe_num(sim.get('fob_jpy')):,} | ¥{self._safe_num(sim.get('gross_profit')):,} | {self._safe_num(sim.get('profit_margin'))}% |\n"
 
         # 利益目標分析
         if profit_analysis.get("best_case"):
             best = profit_analysis["best_case"]
             prompt += f"""
 【10. 利益100万円達成分析】
-ベストケース: {best['price_label']} × {best['fob_label']}
-1台あたり粗利: ¥{best['gross_profit_per_unit']:,}
-必要台数: {best['units_needed']}台
-必要調達額: 約{best['total_revenue_formatted']}
+ベストケース: {best.get('price_label', '')} × {best.get('fob_label', '')}
+1台あたり粗利: ¥{self._safe_num(best.get('gross_profit_per_unit')):,}
+必要台数: {self._safe_num(best.get('units_needed'))}台
+必要調達額: 約{best.get('total_revenue_formatted', '')}
 """
 
         # 規制情報
@@ -978,13 +993,13 @@ PSE（電気用品安全法）:
   要否: {pse.get("required", "不明")}
   理由: {pse.get("reason", "")}
   種別: {pse.get("type", "")}
-  推定費用: {pse.get("estimated_cost_jpy", 0):,}円
+  推定費用: {self._safe_num(pse.get("estimated_cost_jpy")):,}円
   備考: {pse.get("notes", "")}
 
 技適（技術基準適合証明）:
   要否: {telec.get("required", "不明")}
   理由: {telec.get("reason", "")}
-  推定費用: {telec.get("estimated_cost_jpy", 0):,}円
+  推定費用: {self._safe_num(telec.get("estimated_cost_jpy")):,}円
   備考: {telec.get("notes", "")}
 
 総合推奨: {regulations.get("recommendation", "")}
@@ -1213,7 +1228,7 @@ PSE（電気用品安全法）:
             if official_info.get("social_media"):
                 social = official_info["social_media"]
                 if social.get("instagram", {}).get("followers"):
-                    prompt += f"Instagram: フォロワー{social['instagram']['followers']:,}人\n"
+                    prompt += f"Instagram: フォロワー{self._safe_num(social['instagram']['followers']):,}人\n"
                 if social.get("youtube", {}).get("url"):
                     prompt += f"YouTube: {social['youtube']['url']}\n"
             if official_info.get("brand_info"):
@@ -1287,8 +1302,8 @@ PSE（電気用品安全法）:
             if amazon_web.get("products_found"):
                 prompt += "発見製品:\n"
                 for p in amazon_web["products_found"][:5]:
-                    prompt += f"  ・{p.get('product_name', '')[:40]} / ¥{p.get('price_jpy', 0):,} / "
-                    prompt += f"評価{p.get('rating', 0)} / レビュー{p.get('review_count', 0)}件\n"
+                    prompt += f"  ・{p.get('product_name', '')[:40]} / ¥{self._safe_num(p.get('price_jpy')):,} / "
+                    prompt += f"評価{self._safe_num(p.get('rating'))} / レビュー{self._safe_num(p.get('review_count'))}件\n"
                     prompt += f"    販売元: {p.get('seller_type', '不明')} / URL: {p.get('url', '')}\n"
             if amazon_web.get("market_analysis"):
                 prompt += f"市場分析: {amazon_web['market_analysis']}\n"
@@ -1306,20 +1321,10 @@ PSE（電気用品安全法）:
                 prompt += "競合製品:\n"
                 for c in cf_competitors["competitors"][:8]:
                     # 文字列の場合は数値に変換（「不明」等の非数値文字列にも対応）
-                    funding = c.get('funding_amount_jpy', 0)
-                    if isinstance(funding, str):
-                        try:
-                            funding = int(funding.replace(',', '').replace('円', '')) if funding and funding not in ['不明', 'N/A', '-'] else 0
-                        except ValueError:
-                            funding = 0
-                    price = c.get('price_jpy', 0)
-                    if isinstance(price, str):
-                        try:
-                            price = int(price.replace(',', '').replace('円', '')) if price and price not in ['不明', 'N/A', '-'] else 0
-                        except ValueError:
-                            price = 0
+                    funding = self._safe_num(c.get('funding_amount_jpy'))
+                    price = self._safe_num(c.get('price_jpy'))
                     prompt += f"  ・{c.get('product_name', '')[:40]} ({c.get('platform', '')})\n"
-                    prompt += f"    調達額: ¥{funding:,} / 達成率: {c.get('percent_funded', 0)}%\n"
+                    prompt += f"    調達額: ¥{funding:,} / 達成率: {self._safe_num(c.get('percent_funded'))}%\n"
                     prompt += f"    価格: ¥{price:,} / 特徴: {c.get('features', '')[:50]}\n"
                     prompt += f"    URL: {c.get('url', '')}\n"
             if cf_competitors.get("category_analysis"):
@@ -1335,12 +1340,7 @@ PSE（電気用品安全法）:
             if amazon_comps:
                 prompt += "競合製品一覧:\n"
                 for c in amazon_comps[:8]:
-                    price = c.get('price_jpy', 0)
-                    if isinstance(price, str):
-                        try:
-                            price = int(price.replace(',', '').replace('円', '')) if price and price not in ['不明', 'N/A', '-'] else 0
-                        except ValueError:
-                            price = 0
+                    price = self._safe_num(c.get('price_jpy'))
                     prompt += f"  ・{c.get('product_name', '')[:50]}\n"
                     prompt += f"    ブランド: {c.get('brand', '不明')} / 価格: ¥{price:,}\n"
                     if c.get('price_range'):
@@ -1352,7 +1352,7 @@ PSE（電気用品安全法）:
                     prompt += f"    関連度: {c.get('relevance', '不明')} / URL: {c.get('url', '')}\n"
             if amazon_competitors.get("market_price_range"):
                 mpr = amazon_competitors["market_price_range"]
-                prompt += f"市場価格帯: ¥{mpr.get('low', 0):,}〜¥{mpr.get('high', 0):,}（平均: ¥{mpr.get('average', 0):,}）\n"
+                prompt += f"市場価格帯: ¥{self._safe_num(mpr.get('low')):,}〜¥{self._safe_num(mpr.get('high')):,}（平均: ¥{self._safe_num(mpr.get('average')):,}）\n"
             if amazon_competitors.get("market_analysis"):
                 prompt += f"競合分析: {amazon_competitors['market_analysis']}\n"
 

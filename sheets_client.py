@@ -7,6 +7,8 @@ Google Sheets連携モジュール
 import os
 import json
 import pickle
+import time
+import ssl
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google.oauth2 import service_account
@@ -275,14 +277,15 @@ class GoogleSheetsClient:
         except HttpError:
             return ''
 
-    def _update_cell(self, row, col, value):
+    def _update_cell(self, row, col, value, max_retries=3):
         """
-        特定のセルに値を更新
+        特定のセルに値を更新（リトライ付き）
 
         Args:
             row (int): 行番号（1始まり）
             col (int): 列番号（1始まり、A=1, B=2, ...）
             value (str): 値
+            max_retries (int): 最大リトライ回数
         """
         # 列番号を列名に変換（A, B, C, ...）
         col_letter = chr(64 + col)  # A=65
@@ -292,21 +295,32 @@ class GoogleSheetsClient:
             'values': [[value]]
         }
 
-        self.service.spreadsheets().values().update(
-            spreadsheetId=self.spreadsheet_id,
-            range=range_name,
-            valueInputOption='RAW',
-            body=body
-        ).execute()
+        for attempt in range(max_retries):
+            try:
+                self.service.spreadsheets().values().update(
+                    spreadsheetId=self.spreadsheet_id,
+                    range=range_name,
+                    valueInputOption='RAW',
+                    body=body
+                ).execute()
+                return  # 成功したら終了
+            except (ssl.SSLError, ConnectionError, Exception) as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # 1, 2, 4秒
+                    print(f"  ⚠️ 書き込みエラー（{col_letter}{row}）、{wait_time}秒後リトライ... ({attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                else:
+                    raise e
 
-    def _update_cell_formula(self, row, col, formula):
+    def _update_cell_formula(self, row, col, formula, max_retries=3):
         """
-        特定のセルに数式を設定
+        特定のセルに数式を設定（リトライ付き）
 
         Args:
             row (int): 行番号（1始まり）
             col (int): 列番号（1始まり、A=1, B=2, ...）
             formula (str): 数式（例: "=SUM(A1:A10)"）
+            max_retries (int): 最大リトライ回数
         """
         # 列番号を列名に変換（A, B, C, ...）
         col_letter = chr(64 + col)  # A=65
@@ -316,13 +330,23 @@ class GoogleSheetsClient:
             'values': [[formula]]
         }
 
-        # USER_ENTEREDを使用すると数式として解釈される
-        self.service.spreadsheets().values().update(
-            spreadsheetId=self.spreadsheet_id,
-            range=range_name,
-            valueInputOption='USER_ENTERED',
-            body=body
-        ).execute()
+        for attempt in range(max_retries):
+            try:
+                # USER_ENTEREDを使用すると数式として解釈される
+                self.service.spreadsheets().values().update(
+                    spreadsheetId=self.spreadsheet_id,
+                    range=range_name,
+                    valueInputOption='USER_ENTERED',
+                    body=body
+                ).execute()
+                return  # 成功したら終了
+            except (ssl.SSLError, ConnectionError, Exception) as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # 1, 2, 4秒
+                    print(f"  ⚠️ 書き込みエラー（{col_letter}{row}）、{wait_time}秒後リトライ... ({attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                else:
+                    raise e
 
     def get_all_sheet_names(self):
         """
