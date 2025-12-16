@@ -80,7 +80,10 @@ class ReportGenerator:
             # Phase 1.5: Web調査
             print("\n🔍 Phase 1.5: Web調査（詳細情報収集）")
             researcher = WebResearcher(api_key=self.api_key)
-            web_research = researcher.research(kickstarter_url, raw_data)
+            # raw_dataからプロダクト名と説明を取得
+            product_name = raw_data.get('kickstarter', {}).get('title', '')
+            product_description = raw_data.get('kickstarter', {}).get('description', '')
+            web_research = researcher.research_product(kickstarter_url, product_name, product_description)
             raw_data['web_research'] = web_research
 
             # Phase 2: 収支計算
