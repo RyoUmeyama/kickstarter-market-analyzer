@@ -88,34 +88,28 @@ class ReportGenerator:
 
             # Phase 2: 収支計算
             print("\n📊 Phase 2: 収支計算")
-            calc_engine = CalculationEngine()
-            calculations = calc_engine.calculate(raw_data)
+            calc_engine = CalculationEngine(raw_data)
+            calculations = calc_engine.calculate_all()
 
             # Phase 2.5: 業界分析
             print("\n🏭 Phase 2.5: 業界分析")
             industry_analyzer = IndustryAnalyzer(api_key=self.api_key)
-            industry_analysis = industry_analyzer.analyze(raw_data, calculations)
+            industry_analysis = industry_analyzer.analyze(web_research, raw_data)
 
             # Phase 2.6: 競合分析
             print("\n🎯 Phase 2.6: 競合分析")
             competitor_analyzer = CompetitorAnalyzer(api_key=self.api_key)
-            competitor_analysis = competitor_analyzer.analyze(raw_data, calculations, industry_analysis)
+            competitor_analysis = competitor_analyzer.analyze(web_research, calculations)
 
             # Phase 2.7: 厳格評価
             print("\n⚠️ Phase 2.7: 厳格評価")
             strict_evaluator = StrictEvaluator(api_key=self.api_key)
-            strict_evaluation = strict_evaluator.evaluate(raw_data, calculations, industry_analysis, competitor_analysis)
+            strict_evaluation = strict_evaluator.evaluate(web_research, calculations, industry_analysis, competitor_analysis)
 
             # Phase 3: レポート生成
             print("\n📝 Phase 3: レポート生成")
             report_gen = ReportGeneratorV2(api_key=self.api_key)
-            report_text = report_gen.generate(
-                raw_data,
-                calculations,
-                industry_analysis,
-                competitor_analysis,
-                strict_evaluation
-            )
+            report_text = report_gen.generate_report(raw_data, calculations)
 
             print("\n✅ V2詳細分析レポート生成完了")
             print(f"  レポート長: {len(report_text):,}文字")
