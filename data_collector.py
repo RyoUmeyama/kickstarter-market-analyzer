@@ -66,6 +66,9 @@ class DataCollector:
         self._playwright = None
         self._browser = None
         self._context = None
+        # Bright Dataプロキシ用
+        self._proxy_browser = None
+        self._proxy_context = None
 
         # 収集データの格納
         self.collected_data = {
@@ -108,6 +111,48 @@ class DataCollector:
 
         return self._browser
 
+    def _get_proxy_browser(self):
+        """Bright Dataプロキシ経由のブラウザを取得"""
+        if not PLAYWRIGHT_AVAILABLE:
+            return None
+
+        if self._proxy_browser is None:
+            bright_data_username = os.getenv('BRIGHT_DATA_USERNAME')
+            bright_data_password = os.getenv('BRIGHT_DATA_PASSWORD')
+
+            if not bright_data_username or not bright_data_password:
+                print("  ⚠️ Bright Data認証情報が設定されていません")
+                return None
+
+            try:
+                if self._playwright is None:
+                    self._playwright = sync_playwright().start()
+
+                proxy_config = {
+                    "server": "brd.superproxy.io:22225",
+                    "username": bright_data_username,
+                    "password": bright_data_password
+                }
+
+                self._proxy_browser = self._playwright.chromium.launch(
+                    headless=True,
+                    proxy=proxy_config,
+                    args=['--disable-blink-features=AutomationControlled']
+                )
+                self._proxy_context = self._proxy_browser.new_context(
+                    viewport={'width': 1920, 'height': 1080},
+                    user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    locale='ja-JP',
+                    timezone_id='Asia/Tokyo',
+                )
+                print("  ✓ Bright Dataプロキシブラウザを初期化")
+            except Exception as e:
+                print(f"  ⚠️ プロキシブラウザ初期化エラー: {e}")
+                self._proxy_browser = None
+                return None
+
+        return self._proxy_browser
+
     def _close_browser(self):
         """ブラウザを閉じる"""
         if self._context:
@@ -120,6 +165,16 @@ class DataCollector:
                 self._browser.close()
             except:
                 pass
+        if self._proxy_context:
+            try:
+                self._proxy_context.close()
+            except:
+                pass
+        if self._proxy_browser:
+            try:
+                self._proxy_browser.close()
+            except:
+                pass
         if self._playwright:
             try:
                 self._playwright.stop()
@@ -127,6 +182,8 @@ class DataCollector:
                 pass
         self._context = None
         self._browser = None
+        self._proxy_context = None
+        self._proxy_browser = None
         self._playwright = None
 
     def collect_all(self, kickstarter_url, product_keywords=None):
@@ -710,8 +767,8 @@ class DataCollector:
         print(f"  抽出キーワード: {unique_keywords}")
         return unique_keywords
 
-    def _collect_amazon_jp(self, keywords):
-        """Amazon.co.jpで製品を検索（複数キーワード対応）"""
+    def _collect_amazon_jp(self, keywords, use_proxy=False):
+        """Amazon.co.jpで製品を検索（複数キーワード対応、プロキシ対応）"""
         data = {
             "source_url": "",
             "collected_at": datetime.now().isoformat(),
@@ -726,8 +783,16 @@ class DataCollector:
             self.collected_data["amazon_jp"] = data
             return
 
-        browser = self._get_browser()
-        if not browser:
+        # プロキシモードまたは直接接続
+        if use_proxy:
+            browser = self._get_proxy_browser()
+            context = self._proxy_context
+            print("  → Bright Dataプロキシ経由でAmazon検索")
+        else:
+            browser = self._get_browser()
+            context = self._context
+
+        if not browser or not context:
             self.collected_data["amazon_jp"] = data
             return
 
@@ -738,7 +803,7 @@ class DataCollector:
 
         page = None
         try:
-            page = self._context.new_page()
+            page = context.new_page()
 
             for search_keyword in search_keywords_to_try:
                 search_url = f"https://www.amazon.co.jp/s?k={quote(search_keyword)}"
@@ -827,6 +892,18 @@ class DataCollector:
                 print(f"  ✓ 合計 {len(data['products'])}件の製品を取得")
             else:
                 data["data_quality"] = "partial"
+                # 直接接続で結果が0件の場合、Bright Dataプロキシでリトライ
+                if not use_proxy:
+                    bright_data_username = os.getenv('BRIGHT_DATA_USERNAME')
+                    bright_data_password = os.getenv('BRIGHT_DATA_PASSWORD')
+                    if bright_data_username and bright_data_password:
+                        print("  → 直接接続で結果0件、プロキシでリトライ...")
+                        if page:
+                            try:
+                                page.close()
+                            except:
+                                pass
+                        return self._collect_amazon_jp(keywords, use_proxy=True)
 
         except Exception as e:
             print(f"  ⚠️ エラー: {e}")
