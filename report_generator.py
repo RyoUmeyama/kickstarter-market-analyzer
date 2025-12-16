@@ -146,6 +146,11 @@ class ReportGenerator:
             product_name
         )
 
+        # 英語件名が日本語の場合は翻訳
+        if en_subject and self._contains_japanese(en_subject):
+            print(f"  → 英語件名を翻訳中...")
+            en_subject = self._translate_to_english(en_subject)
+
         # V2詳細レポートを生成
         v2_report = self._generate_v2_report(kickstarter_url)
 
@@ -174,15 +179,39 @@ class ReportGenerator:
             product_name
         )
 
+        # テンプレート部分を{{レポート}}で分割
+        if report_placeholder in en_body_template:
+            template_parts = en_body_template.split(report_placeholder, 1)
+            template_before = template_parts[0]
+            template_after = template_parts[1] if len(template_parts) > 1 else ''
+        else:
+            template_before = en_body_template
+            template_after = ''
+
+        # テンプレート前半部分を英語に翻訳（日本語が含まれている場合）
+        if template_before and template_before.strip() and self._contains_japanese(template_before):
+            print(f"  → テンプレート前半を英語に翻訳中...")
+            template_before = self._translate_to_english(template_before)
+
+        # テンプレート後半部分を英語に翻訳（日本語が含まれている場合）
+        if template_after and template_after.strip() and self._contains_japanese(template_after):
+            print(f"  → テンプレート後半を英語に翻訳中...")
+            template_after = self._translate_to_english(template_after)
+
         # V2レポートを英語に翻訳
         print(f"  → V2レポートを英語に翻訳中（{len(v2_report):,}文字）...")
         v2_report_en = self._translate_to_english(v2_report)
 
-        # 英語テンプレートに挿入
-        if report_placeholder in en_body_template:
-            en_body = en_body_template.replace(report_placeholder, v2_report_en)
-        else:
-            en_body = en_body_template + "\n\n" + v2_report_en
+        # 英語テンプレートに挿入（翻訳済みの前半 + レポート + 翻訳済みの後半）
+        parts = []
+        if template_before and template_before.strip():
+            parts.append(template_before.rstrip())
+        if v2_report_en and v2_report_en.strip():
+            parts.append(v2_report_en.strip())
+        if template_after and template_after.strip():
+            parts.append(template_after.lstrip())
+
+        en_body = '\n\n'.join(parts)
 
         print(f"  ✓ 英語版生成完了（{len(en_body):,}文字）")
 
