@@ -79,7 +79,7 @@ class ReportGenerator:
 
             # Phase 1.5: Web調査
             print("\n🔍 Phase 1.5: Web調査（詳細情報収集）")
-            researcher = WebResearcher(openai_api_key=self.api_key)
+            researcher = WebResearcher(api_key=self.api_key)
             web_research = researcher.research(kickstarter_url, raw_data)
             raw_data['web_research'] = web_research
 
@@ -90,22 +90,22 @@ class ReportGenerator:
 
             # Phase 2.5: 業界分析
             print("\n🏭 Phase 2.5: 業界分析")
-            industry_analyzer = IndustryAnalyzer(openai_api_key=self.api_key)
+            industry_analyzer = IndustryAnalyzer(api_key=self.api_key)
             industry_analysis = industry_analyzer.analyze(raw_data, calculations)
 
             # Phase 2.6: 競合分析
             print("\n🎯 Phase 2.6: 競合分析")
-            competitor_analyzer = CompetitorAnalyzer(openai_api_key=self.api_key)
+            competitor_analyzer = CompetitorAnalyzer(api_key=self.api_key)
             competitor_analysis = competitor_analyzer.analyze(raw_data, calculations, industry_analysis)
 
             # Phase 2.7: 厳格評価
             print("\n⚠️ Phase 2.7: 厳格評価")
-            strict_evaluator = StrictEvaluator(openai_api_key=self.api_key)
+            strict_evaluator = StrictEvaluator(api_key=self.api_key)
             strict_evaluation = strict_evaluator.evaluate(raw_data, calculations, industry_analysis, competitor_analysis)
 
             # Phase 3: レポート生成
             print("\n📝 Phase 3: レポート生成")
-            report_gen = ReportGeneratorV2(openai_api_key=self.api_key)
+            report_gen = ReportGeneratorV2(api_key=self.api_key)
             report_text = report_gen.generate(
                 raw_data,
                 calculations,
