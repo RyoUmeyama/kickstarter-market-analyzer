@@ -63,6 +63,22 @@ class CalculationEngine:
             self.results["exchange_rate"]["usd_jpy"] = fx_data["usd_jpy"]
             self.results["exchange_rate"]["source"] = fx_data.get("source_url", "")
 
+    def _safe_numeric(self, value, default=0):
+        """文字列や None を安全に数値に変換"""
+        if value is None:
+            return default
+        if isinstance(value, (int, float)):
+            return value
+        if isinstance(value, str):
+            # 数字以外の文字を除去して変換を試みる
+            cleaned = ''.join(c for c in value if c.isdigit() or c == '.' or c == '-')
+            if cleaned:
+                try:
+                    return float(cleaned) if '.' in cleaned else int(cleaned)
+                except ValueError:
+                    return default
+        return default
+
     def calculate_all(self):
         """全ての計算を実行"""
         print("\n" + "=" * 60)
@@ -131,7 +147,8 @@ class CalculationEngine:
             ("BackerKit", bk_data.get("funding_amount_usd", 0)),
         ]
         for name, amount in sources:
-            if amount and amount > 0:
+            amount = self._safe_numeric(amount)
+            if amount > 0:
                 stats["funding_amount_usd"] = amount
                 stats["funding_amount_jpy"] = int(amount * usd_jpy)
                 stats["data_sources"].append(f"{name}: 調達額")
@@ -153,7 +170,8 @@ class CalculationEngine:
             ("BackerKit", bk_data.get("backers_count", 0)),
         ]
         for name, count in sources_backers:
-            if count and count > 0:
+            count = self._safe_numeric(count)
+            if count > 0:
                 stats["backers_count"] = count
                 stats["data_sources"].append(f"{name}: バッカー数")
                 print(f"  ✓ バッカー数: {count:,}人 [{name}]")
@@ -166,7 +184,8 @@ class CalculationEngine:
             ("Kicktraq", kt_data.get("average_pledge_usd", 0)),
         ]
         for name, avg in sources_avg:
-            if avg and avg > 0:
+            avg = self._safe_numeric(avg)
+            if avg > 0:
                 stats["average_pledge_usd"] = avg
                 stats["average_pledge_jpy"] = int(avg * usd_jpy)
                 stats["data_sources"].append(f"{name}: 平均Pledge")
@@ -182,12 +201,14 @@ class CalculationEngine:
             print(f"  ✓ 平均Pledge（計算）: ${stats['average_pledge_usd']:.2f}")
 
         # 達成率（web_research優先 - 重要！）
-        if ks_details.get("percent_funded") and ks_details["percent_funded"] > 0:
-            stats["percent_funded"] = ks_details["percent_funded"]
+        pct_wr = self._safe_numeric(ks_details.get("percent_funded"))
+        pct_ks = self._safe_numeric(ks_data.get("percent_funded"))
+        if pct_wr > 0:
+            stats["percent_funded"] = pct_wr
             stats["data_sources"].append("WebResearch: 達成率")
             print(f"  ✓ 達成率: {stats['percent_funded']}% [WebResearch]")
-        elif ks_data.get("percent_funded") and ks_data["percent_funded"] > 0:
-            stats["percent_funded"] = ks_data["percent_funded"]
+        elif pct_ks > 0:
+            stats["percent_funded"] = pct_ks
             stats["data_sources"].append("Kickstarter: 達成率")
             print(f"  ✓ 達成率: {stats['percent_funded']}% [Kickstarter]")
         elif stats["funding_amount_usd"] and stats["goal_amount_usd"]:
@@ -212,15 +233,17 @@ class CalculationEngine:
         msrp_source = ""
 
         # web_researchから公式MSRPを取得（最優先）
-        if official_info.get("msrp_usd") and official_info["msrp_usd"] > 0:
-            msrp_usd = official_info["msrp_usd"]
+        wr_msrp = self._safe_numeric(official_info.get("msrp_usd"))
+        if wr_msrp > 0:
+            msrp_usd = wr_msrp
             msrp_source = "公式サイト（WebResearch）"
 
         # official_siteからのMSRP
         if not msrp_usd:
             official_data = self.data.get("official_site", {})
-            if official_data.get("msrp_usd"):
-                msrp_usd = official_data["msrp_usd"]
+            off_msrp = self._safe_numeric(official_data.get("msrp_usd"))
+            if off_msrp > 0:
+                msrp_usd = off_msrp
                 msrp_source = "公式サイト"
 
         # Kickstarter平均Pledgeから推定
