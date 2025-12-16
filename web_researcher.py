@@ -1031,7 +1031,7 @@ class WebResearcher:
                 "same_product_found": False,
                 "products_found": [],
                 "product_pages_found": [],
-                "market_analysis": "Amazon.co.jpでの検索結果なし",
+                "market_analysis": "",
                 "search_queries_used": amazon_search_queries,
                 "sources": sources
             }

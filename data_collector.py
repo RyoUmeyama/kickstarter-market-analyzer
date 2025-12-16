@@ -711,7 +711,7 @@ class DataCollector:
         return unique_keywords
 
     def _collect_amazon_jp(self, keywords):
-        """Amazon.co.jpで製品を検索"""
+        """Amazon.co.jpで製品を検索（複数キーワード対応）"""
         data = {
             "source_url": "",
             "collected_at": datetime.now().isoformat(),
@@ -728,86 +728,107 @@ class DataCollector:
 
         browser = self._get_browser()
         if not browser:
-            self.collected_data["errors"].append("Amazon.co.jp: ブラウザ初期化失敗")
             self.collected_data["amazon_jp"] = data
             return
 
-        # ブランド名で検索（最初のキーワード）
-        search_keyword = keywords[0]
-        search_url = f"https://www.amazon.co.jp/s?k={quote(search_keyword)}"
-        data["source_url"] = search_url
+        # 複数キーワードで検索（ブランド名、製品カテゴリなど）
+        search_keywords_to_try = keywords[:3]  # 最大3キーワード
+        all_products = []
+        searched_urls = []
 
         page = None
         try:
             page = self._context.new_page()
-            page.goto(search_url, wait_until='domcontentloaded', timeout=30000)
-            page.wait_for_timeout(3000)
 
-            html = page.content()
-            soup = BeautifulSoup(html, 'html.parser')
+            for search_keyword in search_keywords_to_try:
+                search_url = f"https://www.amazon.co.jp/s?k={quote(search_keyword)}"
+                searched_urls.append(search_url)
+                print(f"  → 検索: {search_keyword}")
 
-            # 検索結果を解析
-            items = soup.select('div[data-component-type="s-search-result"]')
-            print(f"  検索結果: {len(items)}件")
-
-            for item in items[:10]:
                 try:
-                    # 製品タイトル
-                    title_elem = item.select_one('h2 a span')
-                    if not title_elem:
-                        continue
-                    title = title_elem.get_text(strip=True)
+                    page.goto(search_url, wait_until='domcontentloaded', timeout=30000)
+                    page.wait_for_timeout(2000)
 
-                    # URL
-                    link_elem = item.select_one('h2 a')
-                    url = ""
-                    if link_elem:
-                        href = link_elem.get('href', '')
-                        if href.startswith('/'):
-                            url = f"https://www.amazon.co.jp{href}"
-                        else:
-                            url = href
+                    html = page.content()
+                    soup = BeautifulSoup(html, 'html.parser')
 
-                    # 価格
-                    price = ""
-                    price_elem = item.select_one('span.a-price-whole')
-                    if price_elem:
-                        price = price_elem.get_text(strip=True)
-                        price = f"¥{price}"
+                    # 検索結果を解析
+                    items = soup.select('div[data-component-type="s-search-result"]')
+                    print(f"    → {len(items)}件取得")
 
-                    # レビュー数
-                    reviews = 0
-                    review_elem = item.select_one('span.a-size-base.s-underline-text')
-                    if review_elem:
-                        review_text = review_elem.get_text(strip=True)
-                        review_match = re.search(r'([\d,]+)', review_text)
-                        if review_match:
-                            reviews = int(review_match.group(1).replace(',', ''))
+                    for item in items[:10]:
+                        try:
+                            # 製品タイトル
+                            title_elem = item.select_one('h2 a span')
+                            if not title_elem:
+                                continue
+                            title = title_elem.get_text(strip=True)
 
-                    product_data = {
-                        "title": title[:100],
-                        "url": url.split('?')[0] if url else "",
-                        "price": price,
-                        "reviews": reviews
-                    }
-                    data["products"].append(product_data)
+                            # URL
+                            link_elem = item.select_one('h2 a')
+                            url = ""
+                            if link_elem:
+                                href = link_elem.get('href', '')
+                                if href.startswith('/'):
+                                    url = f"https://www.amazon.co.jp{href}"
+                                else:
+                                    url = href
 
-                    # 同一ブランドチェック
-                    if search_keyword.lower() in title.lower():
-                        data["same_brand_found"] = True
-                        print(f"  ✓ 同一ブランド発見: {title[:40]}...")
+                            # 価格
+                            price = ""
+                            price_elem = item.select_one('span.a-price-whole')
+                            if price_elem:
+                                price = price_elem.get_text(strip=True)
+                                price = f"¥{price}"
 
-                except Exception:
+                            # レビュー数
+                            reviews = 0
+                            review_elem = item.select_one('span.a-size-base.s-underline-text')
+                            if review_elem:
+                                review_text = review_elem.get_text(strip=True)
+                                review_match = re.search(r'([\d,]+)', review_text)
+                                if review_match:
+                                    reviews = int(review_match.group(1).replace(',', ''))
+
+                            product_data = {
+                                "title": title[:100],
+                                "url": url.split('?')[0] if url else "",
+                                "price": price,
+                                "reviews": reviews,
+                                "search_keyword": search_keyword
+                            }
+
+                            # 重複チェック（URLベース）
+                            existing_urls = [p.get("url", "") for p in all_products]
+                            if product_data["url"] and product_data["url"] not in existing_urls:
+                                all_products.append(product_data)
+
+                            # 同一ブランドチェック（最初のキーワードで）
+                            if keywords[0].lower() in title.lower():
+                                data["same_brand_found"] = True
+                                print(f"    ✓ 同一ブランド発見: {title[:40]}...")
+
+                        except Exception:
+                            continue
+
+                    # 十分な結果が取れたら終了
+                    if len(all_products) >= 10:
+                        break
+
+                except Exception as e:
+                    print(f"    ⚠️ 検索エラー: {e}")
                     continue
+
+            data["products"] = all_products[:15]
+            data["source_url"] = searched_urls[0] if searched_urls else ""
 
             if data["products"]:
                 data["data_quality"] = "full"
+                print(f"  ✓ 合計 {len(data['products'])}件の製品を取得")
             else:
-                data["data_quality"] = "no_results"
-                print("  検索結果なし")
+                data["data_quality"] = "partial"
 
         except Exception as e:
-            self.collected_data["errors"].append(f"Amazon.co.jp: {str(e)}")
             print(f"  ⚠️ エラー: {e}")
         finally:
             if page:
