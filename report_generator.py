@@ -3,11 +3,22 @@
 レポート生成モジュール
 テンプレート + OpenAI API対応
 ウェブ検索による実在データ取得機能付き
+
+V2対応: ⑤テンプレート選択時は詳細分析レポート（analyzer_v2）を使用
 """
 
 import os
 from openai import OpenAI
 from market_search import MarketSearcher
+
+# V2 Analyzer imports
+from data_collector import DataCollector
+from calculation_engine import CalculationEngine
+from report_generator_v2 import ReportGeneratorV2
+from web_researcher import WebResearcher
+from industry_analyzer import IndustryAnalyzer
+from competitor_analyzer import CompetitorAnalyzer
+from strict_evaluator import StrictEvaluator
 
 
 class ReportGenerator:
@@ -40,6 +51,150 @@ class ReportGenerator:
         """
         if self.market_searcher:
             self.market_searcher.reset_browser()
+
+    def _generate_v2_report(self, kickstarter_url):
+        """
+        V2 Analyzerを使用して詳細分析レポートを生成
+
+        Args:
+            kickstarter_url (str): Kickstarter URL
+
+        Returns:
+            str: 生成された詳細レポート（日本語）
+        """
+        print("\n" + "=" * 60)
+        print("🚀 V2 詳細分析レポート生成開始")
+        print("=" * 60)
+
+        try:
+            # Phase 1: データ収集
+            print("\n📥 Phase 1: データ収集")
+            collector = DataCollector()
+            raw_data = collector.collect(kickstarter_url)
+
+            if not raw_data or raw_data.get('error'):
+                error_msg = raw_data.get('error', 'データ収集に失敗しました') if raw_data else 'データ収集に失敗しました'
+                print(f"  ❌ {error_msg}")
+                return f"エラー: {error_msg}"
+
+            # Phase 1.5: Web調査
+            print("\n🔍 Phase 1.5: Web調査（詳細情報収集）")
+            researcher = WebResearcher(openai_api_key=self.api_key)
+            web_research = researcher.research(kickstarter_url, raw_data)
+            raw_data['web_research'] = web_research
+
+            # Phase 2: 収支計算
+            print("\n📊 Phase 2: 収支計算")
+            calc_engine = CalculationEngine()
+            calculations = calc_engine.calculate(raw_data)
+
+            # Phase 2.5: 業界分析
+            print("\n🏭 Phase 2.5: 業界分析")
+            industry_analyzer = IndustryAnalyzer(openai_api_key=self.api_key)
+            industry_analysis = industry_analyzer.analyze(raw_data, calculations)
+
+            # Phase 2.6: 競合分析
+            print("\n🎯 Phase 2.6: 競合分析")
+            competitor_analyzer = CompetitorAnalyzer(openai_api_key=self.api_key)
+            competitor_analysis = competitor_analyzer.analyze(raw_data, calculations, industry_analysis)
+
+            # Phase 2.7: 厳格評価
+            print("\n⚠️ Phase 2.7: 厳格評価")
+            strict_evaluator = StrictEvaluator(openai_api_key=self.api_key)
+            strict_evaluation = strict_evaluator.evaluate(raw_data, calculations, industry_analysis, competitor_analysis)
+
+            # Phase 3: レポート生成
+            print("\n📝 Phase 3: レポート生成")
+            report_gen = ReportGeneratorV2(openai_api_key=self.api_key)
+            report_text = report_gen.generate(
+                raw_data,
+                calculations,
+                industry_analysis,
+                competitor_analysis,
+                strict_evaluation
+            )
+
+            print("\n✅ V2詳細分析レポート生成完了")
+            print(f"  レポート長: {len(report_text):,}文字")
+
+            return report_text
+
+        except Exception as e:
+            import traceback
+            print(f"\n❌ V2レポート生成エラー: {e}")
+            traceback.print_exc()
+            return f"V2レポート生成エラー: {str(e)}"
+
+    def _generate_v2_email(self, template, kickstarter_url, product_name):
+        """
+        ⑤テンプレート用: V2詳細レポートをテンプレートに埋め込んでメールを生成
+
+        Args:
+            template (dict): テンプレート設定
+            kickstarter_url (str): Kickstarter URL
+            product_name (str): 製品名/メーカー名
+
+        Returns:
+            dict: 生成されたレポート（jp_subject, en_subject, jp_body, en_body）
+        """
+        # 件名のプレースホルダーを置換
+        en_subject = self._replace_placeholders(
+            template['en_subject'],
+            kickstarter_url,
+            product_name
+        )
+        jp_subject = self._replace_placeholders(
+            template['jp_subject'],
+            kickstarter_url,
+            product_name
+        )
+
+        # V2詳細レポートを生成
+        v2_report = self._generate_v2_report(kickstarter_url)
+
+        # テンプレート本文を取得
+        jp_body_template = self._replace_placeholders(
+            template.get('jp_body', ''),
+            kickstarter_url,
+            product_name
+        )
+
+        # {{レポート}}プレースホルダーにV2レポートを挿入
+        report_placeholder = '{{レポート}}'
+        if report_placeholder in jp_body_template:
+            jp_body = jp_body_template.replace(report_placeholder, v2_report)
+            print(f"  ✓ V2レポートをテンプレートに挿入しました")
+        else:
+            # プレースホルダーがない場合はテンプレート末尾に追加
+            jp_body = jp_body_template + "\n\n" + v2_report
+            print(f"  ⚠️ {{{{レポート}}}}プレースホルダーが見つかりません。末尾に追加しました")
+
+        # 英語本文を生成（日本語から翻訳）
+        print(f"\n🌐 英語版を生成中...")
+        en_body_template = self._replace_placeholders(
+            template.get('en_body', ''),
+            kickstarter_url,
+            product_name
+        )
+
+        # V2レポートを英語に翻訳
+        print(f"  → V2レポートを英語に翻訳中（{len(v2_report):,}文字）...")
+        v2_report_en = self._translate_to_english(v2_report)
+
+        # 英語テンプレートに挿入
+        if report_placeholder in en_body_template:
+            en_body = en_body_template.replace(report_placeholder, v2_report_en)
+        else:
+            en_body = en_body_template + "\n\n" + v2_report_en
+
+        print(f"  ✓ 英語版生成完了（{len(en_body):,}文字）")
+
+        return {
+            'jp_subject': jp_subject,
+            'en_subject': en_subject,
+            'jp_body': jp_body,
+            'en_body': en_body
+        }
 
     def _contains_japanese(self, text):
         """
@@ -153,6 +308,7 @@ RULES:
         - A2（en_body）とB2（jp_body）もGOOGLETRANSLATE関数で連動
         - A3（プロンプト、日本語）がある場合のみOpenAI APIを使用
           → 英語でレポートを生成 → Google Sheetsで日本語に翻訳
+        - ⑤テンプレートの場合: V2 Analyzerで詳細レポートを生成
 
         主要な設定（設定シートから読み込み）:
         - A2: 共通プロンプト（レポートの質・文体 - お客様編集可能）
@@ -175,6 +331,15 @@ RULES:
         # 翻訳ルールを保存（_translate_to_english で使用）
         self._translation_rules = translation_rules
         self._output_format_rules = output_format_rules
+
+        # テンプレート名を取得
+        template_name = template.get('name', '')
+
+        # ⑤テンプレートの場合はV2詳細分析レポートを使用
+        if '⑤' in template_name:
+            print(f"\n📋 テンプレート⑤検出: V2詳細分析レポートを生成します")
+            return self._generate_v2_email(template, kickstarter_url, product_name)
+
         # 件名のプレースホルダーを置換（GOOGLETRANSLATE関数の結果がそのまま入っている）
         en_subject = self._replace_placeholders(
             template['en_subject'],

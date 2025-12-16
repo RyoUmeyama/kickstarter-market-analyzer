@@ -31,6 +31,7 @@ on:
 jobs:
   extract-and-generate:
     runs-on: ubuntu-latest
+    timeout-minutes: 120  # V2詳細分析は時間がかかるため延長
 
     steps:
       - name: Checkout repository

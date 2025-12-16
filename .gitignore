@@ -47,6 +47,13 @@ data/
 # Logs
 *.log
 
+# Test files and directories
+test_results*/
+test_integration/
+test_*.json
+web_research_results.json
+check_*.py
+
 # OS
 .DS_Store
 Thumbs.db

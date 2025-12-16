@@ -53,6 +53,7 @@ class CalculationEngine:
             "simulations": [],
             "breakeven_analysis": {},
             "profit_target_analysis": {},
+            "regulation_assessment": {},  # 規制情報
             "summary": {},
         }
 
@@ -69,24 +70,28 @@ class CalculationEngine:
         print("=" * 60)
 
         # 1. Kickstarter統計の整理
-        print("\n[1/5] Kickstarter統計整理中...")
+        print("\n[1/6] Kickstarter統計整理中...")
         self._calculate_kickstarter_stats()
 
         # 2. FOB推定
-        print("\n[2/5] FOB（仕入単価）推定中...")
+        print("\n[2/6] FOB（仕入単価）推定中...")
         self._estimate_fob()
 
         # 3. 価格帯推奨
-        print("\n[3/5] 推奨価格帯算出中...")
+        print("\n[3/6] 推奨価格帯算出中...")
         self._recommend_prices()
 
         # 4. 収支シミュレーション
-        print("\n[4/5] 収支シミュレーション実行中...")
+        print("\n[4/6] 収支シミュレーション実行中...")
         self._run_simulations()
 
         # 5. 利益目標分析
-        print("\n[5/5] 利益目標分析中...")
+        print("\n[5/6] 利益目標分析中...")
         self._analyze_profit_targets()
+
+        # 6. 規制情報の判定
+        print("\n[6/6] 規制情報（PSE/技適）判定中...")
+        self._assess_regulations()
 
         print("\n" + "=" * 60)
         print("✅ 収支計算完了")
@@ -95,10 +100,13 @@ class CalculationEngine:
         return self.results
 
     def _calculate_kickstarter_stats(self):
-        """Kickstarter統計を整理"""
+        """Kickstarter統計を整理（web_researchデータを優先）"""
         ks_data = self.data.get("kickstarter", {})
         kt_data = self.data.get("kicktraq", {})
         bk_data = self.data.get("backerkit", {})
+        # Phase 1.5 Web調査データを取得（優先度高）
+        web_research = self.data.get("web_research", {})
+        ks_details = web_research.get("kickstarter_details", {})
         usd_jpy = self.results["exchange_rate"]["usd_jpy"]
 
         stats = {
@@ -115,14 +123,15 @@ class CalculationEngine:
             "data_sources": [],
         }
 
-        # 調達額（複数ソースから最良のものを選択）
+        # 調達額（web_research優先、次にKickstarter, Kicktraq, BackerKit）
         sources = [
+            ("WebResearch", ks_details.get("funding_amount_usd", 0)),
             ("Kickstarter", ks_data.get("funding_amount_usd", 0)),
             ("Kicktraq", kt_data.get("funding_amount_usd", 0)),
             ("BackerKit", bk_data.get("funding_amount_usd", 0)),
         ]
         for name, amount in sources:
-            if amount > 0:
+            if amount and amount > 0:
                 stats["funding_amount_usd"] = amount
                 stats["funding_amount_jpy"] = int(amount * usd_jpy)
                 stats["data_sources"].append(f"{name}: 調達額")
@@ -136,26 +145,28 @@ class CalculationEngine:
             stats["data_sources"].append("Kickstarter: 目標額")
             print(f"  ✓ 目標額: ${stats['goal_amount_usd']:,}")
 
-        # バッカー数
+        # バッカー数（web_research優先）
         sources_backers = [
+            ("WebResearch", ks_details.get("backers_count", 0)),
             ("Kickstarter", ks_data.get("backers_count", 0)),
             ("Kicktraq", kt_data.get("backers_count", 0)),
             ("BackerKit", bk_data.get("backers_count", 0)),
         ]
         for name, count in sources_backers:
-            if count > 0:
+            if count and count > 0:
                 stats["backers_count"] = count
                 stats["data_sources"].append(f"{name}: バッカー数")
                 print(f"  ✓ バッカー数: {count:,}人 [{name}]")
                 break
 
-        # 平均Pledge
+        # 平均Pledge（web_research優先）
         sources_avg = [
+            ("WebResearch", ks_details.get("average_pledge_usd", 0)),
             ("BackerKit", bk_data.get("average_pledge_usd", 0)),
             ("Kicktraq", kt_data.get("average_pledge_usd", 0)),
         ]
         for name, avg in sources_avg:
-            if avg > 0:
+            if avg and avg > 0:
                 stats["average_pledge_usd"] = avg
                 stats["average_pledge_jpy"] = int(avg * usd_jpy)
                 stats["data_sources"].append(f"{name}: 平均Pledge")
@@ -170,30 +181,47 @@ class CalculationEngine:
             stats["data_sources"].append("計算: 平均Pledge")
             print(f"  ✓ 平均Pledge（計算）: ${stats['average_pledge_usd']:.2f}")
 
-        # 達成率
-        if ks_data.get("percent_funded"):
+        # 達成率（web_research優先 - 重要！）
+        if ks_details.get("percent_funded") and ks_details["percent_funded"] > 0:
+            stats["percent_funded"] = ks_details["percent_funded"]
+            stats["data_sources"].append("WebResearch: 達成率")
+            print(f"  ✓ 達成率: {stats['percent_funded']}% [WebResearch]")
+        elif ks_data.get("percent_funded") and ks_data["percent_funded"] > 0:
             stats["percent_funded"] = ks_data["percent_funded"]
+            stats["data_sources"].append("Kickstarter: 達成率")
+            print(f"  ✓ 達成率: {stats['percent_funded']}% [Kickstarter]")
         elif stats["funding_amount_usd"] and stats["goal_amount_usd"]:
             stats["percent_funded"] = int((stats["funding_amount_usd"] / stats["goal_amount_usd"]) * 100)
-            print(f"  ✓ 達成率: {stats['percent_funded']}%")
+            stats["data_sources"].append("計算: 達成率")
+            print(f"  ✓ 達成率: {stats['percent_funded']}% [計算]")
 
         self.results["kickstarter_stats"] = stats
 
     def _estimate_fob(self):
-        """FOB（仕入単価）を推定"""
+        """FOB（仕入単価）を推定（web_researchデータを優先）"""
         ks_stats = self.results["kickstarter_stats"]
         usd_jpy = self.results["exchange_rate"]["usd_jpy"]
 
+        # Phase 1.5 Web調査データを取得
+        web_research = self.data.get("web_research", {})
+        official_info = web_research.get("official_info", {})
+
         # MSRP（定価）の推定
-        # 優先順位: 公式サイト > Kickstarter平均Pledgeの1.3〜1.5倍
+        # 優先順位: web_research公式情報 > official_site > Kickstarter平均Pledgeの1.35倍
         msrp_usd = 0
         msrp_source = ""
 
-        # 公式サイトからのMSRP
-        official_data = self.data.get("official_site", {})
-        if official_data.get("msrp_usd"):
-            msrp_usd = official_data["msrp_usd"]
-            msrp_source = "公式サイト"
+        # web_researchから公式MSRPを取得（最優先）
+        if official_info.get("msrp_usd") and official_info["msrp_usd"] > 0:
+            msrp_usd = official_info["msrp_usd"]
+            msrp_source = "公式サイト（WebResearch）"
+
+        # official_siteからのMSRP
+        if not msrp_usd:
+            official_data = self.data.get("official_site", {})
+            if official_data.get("msrp_usd"):
+                msrp_usd = official_data["msrp_usd"]
+                msrp_source = "公式サイト"
 
         # Kickstarter平均Pledgeから推定
         if not msrp_usd and ks_stats.get("average_pledge_usd"):
@@ -430,6 +458,103 @@ class CalculationEngine:
 
         self.results["breakeven_analysis"] = breakeven
         self.results["profit_target_analysis"] = analysis
+
+    def _assess_regulations(self):
+        """製品カテゴリに基づく規制情報（PSE/技適）を判定"""
+        ks_data = self.data.get("kickstarter", {})
+        title = ks_data.get("title", "").lower()
+        description = ks_data.get("description", "").lower()
+        combined = f"{title} {description}"
+
+        # 規制判定結果
+        assessment = {
+            "pse": {
+                "required": "unknown",
+                "reason": "",
+                "type": "",
+                "estimated_cost_jpy": 0,
+                "notes": ""
+            },
+            "telec": {
+                "required": "unknown",
+                "reason": "",
+                "estimated_cost_jpy": 0,
+                "notes": ""
+            },
+            "product_category": "",
+            "recommendation": ""
+        }
+
+        # カテゴリ判定キーワード
+        wireless_keywords = ["bluetooth", "wifi", "wi-fi", "wireless", "ワイヤレス", "2.4ghz", "5ghz", "app", "smart"]
+        electric_keywords = ["charger", "battery", "usb", "power", "adapter", "ac", "電源", "充電"]
+        no_electric_keywords = ["manual", "mechanical", "手動", "non-electric"]
+
+        # 無線機能の判定（技適）
+        has_wireless = any(kw in combined for kw in wireless_keywords)
+        # 電気製品の判定（PSE）
+        has_electric = any(kw in combined for kw in electric_keywords)
+        is_manual = any(kw in combined for kw in no_electric_keywords)
+
+        # 製品カテゴリの推定
+        if "fitness" in combined or "workout" in combined or "exercise" in combined or "resistance" in combined:
+            assessment["product_category"] = "フィットネス器具"
+        elif "speaker" in combined or "audio" in combined:
+            assessment["product_category"] = "オーディオ機器"
+        elif "watch" in combined or "wearable" in combined:
+            assessment["product_category"] = "ウェアラブル機器"
+        elif "light" in combined or "lamp" in combined:
+            assessment["product_category"] = "照明器具"
+        elif "charger" in combined or "power bank" in combined:
+            assessment["product_category"] = "充電器/電源機器"
+        else:
+            assessment["product_category"] = "一般電子機器"
+
+        # 技適（TELEC）判定
+        if has_wireless:
+            assessment["telec"]["required"] = "yes"
+            assessment["telec"]["reason"] = "Bluetooth/WiFi等の無線機能を搭載"
+            assessment["telec"]["estimated_cost_jpy"] = 450000  # 約$3,000相当
+            assessment["telec"]["notes"] = "技適取得費用: 約30〜50万円（認証機関・製品複雑度による）。既認証モジュール使用の場合は低減可能。"
+            print(f"  ✓ 技適: 必要（無線機能あり）")
+        else:
+            assessment["telec"]["required"] = "no"
+            assessment["telec"]["reason"] = "無線機能なし"
+            assessment["telec"]["estimated_cost_jpy"] = 0
+            assessment["telec"]["notes"] = "無線機能がないため技適は不要"
+            print(f"  ✓ 技適: 不要（無線機能なし）")
+
+        # PSE判定
+        if is_manual and not has_electric:
+            assessment["pse"]["required"] = "no"
+            assessment["pse"]["reason"] = "手動式/非電気製品"
+            assessment["pse"]["type"] = "対象外"
+            assessment["pse"]["estimated_cost_jpy"] = 0
+            assessment["pse"]["notes"] = "電気を使用しない製品のためPSE対象外"
+            print(f"  ✓ PSE: 不要（非電気製品）")
+        elif has_electric:
+            assessment["pse"]["required"] = "conditional"
+            assessment["pse"]["reason"] = "電源アダプタ/充電機能の有無による"
+            assessment["pse"]["type"] = "特定電気用品以外（USB充電式の場合）"
+            assessment["pse"]["estimated_cost_jpy"] = 200000  # 約20万円
+            assessment["pse"]["notes"] = "USB充電のみ: 不要の可能性。AC電源アダプタ同梱: PSE必要（約10〜30万円）"
+            print(f"  ✓ PSE: 条件付き（電源仕様による）")
+        else:
+            assessment["pse"]["required"] = "unknown"
+            assessment["pse"]["reason"] = "電源仕様の詳細確認が必要"
+            assessment["pse"]["type"] = "要確認"
+            assessment["pse"]["estimated_cost_jpy"] = 0
+            assessment["pse"]["notes"] = "製品の電源仕様を確認してください"
+            print(f"  ✓ PSE: 要確認（電源仕様不明）")
+
+        # 総合推奨
+        total_cost = assessment["pse"]["estimated_cost_jpy"] + assessment["telec"]["estimated_cost_jpy"]
+        if total_cost > 0:
+            assessment["recommendation"] = f"規制対応費用の目安: 約{total_cost:,}円。輸入前にメーカーに製品仕様（電源方式・無線機能）を確認し、必要な認証を特定してください。"
+        else:
+            assessment["recommendation"] = "規制対応は軽微または不要の可能性がありますが、製品の最終仕様を確認してください。"
+
+        self.results["regulation_assessment"] = assessment
 
     def get_summary_for_prompt(self):
         """AI分析用のサマリーを取得"""

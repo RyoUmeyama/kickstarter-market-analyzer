@@ -2,8 +2,13 @@
 """
 Kickstarter Market Analyzer V2 - 統合スクリプト
 
+マルチフェーズ分析パイプライン:
 Phase 1: データ収集（DataCollector）
+Phase 1.5: Web調査（WebResearcher）- 実Web検索 + GPT-4o分析
 Phase 2: 収支計算（CalculationEngine）
+Phase 2.5: 業界分析（IndustryAnalyzer）
+Phase 2.6: 競合分析（CompetitorAnalyzer）
+Phase 2.7: 厳格評価（StrictEvaluator）
 Phase 3: レポート生成（ReportGeneratorV2）
 
 使用方法:
@@ -21,6 +26,10 @@ from dotenv import load_dotenv
 from data_collector import DataCollector
 from calculation_engine import CalculationEngine
 from report_generator_v2 import ReportGeneratorV2
+from web_researcher import WebResearcher
+from industry_analyzer import IndustryAnalyzer
+from competitor_analyzer import CompetitorAnalyzer
+from strict_evaluator import StrictEvaluator
 
 
 class KickstarterAnalyzerV2:
@@ -42,14 +51,24 @@ class KickstarterAnalyzerV2:
 
         # モジュール初期化
         self.collector = DataCollector(openai_api_key=self.openai_api_key)
+        self.web_researcher = WebResearcher(api_key=self.openai_api_key)
         self.report_generator = ReportGeneratorV2(
             api_key=self.openai_api_key,
             model='gpt-4o'  # 高品質なレポート生成のためgpt-4oを使用
         )
 
+        # 追加モジュール初期化
+        self.industry_analyzer = IndustryAnalyzer(api_key=self.openai_api_key)
+        self.competitor_analyzer = CompetitorAnalyzer(api_key=self.openai_api_key)
+        self.strict_evaluator = StrictEvaluator(api_key=self.openai_api_key)
+
         # 結果格納
         self.collected_data = None
+        self.web_research_data = None
         self.calculation_results = None
+        self.industry_analysis = None
+        self.competitor_analysis = None
+        self.strict_evaluation = None
         self.report = None
 
     def analyze(self, kickstarter_url, product_keywords=None, output_dir=None):
@@ -85,12 +104,63 @@ class KickstarterAnalyzerV2:
         for key, value in self.collector.get_summary().items():
             print(f"  {key}: {value}")
 
+        # Phase 1.5: Web調査（OpenAI APIを活用した詳細調査）
+        print("\n" + "=" * 70)
+        print("🔍 Phase 1.5: Web調査（詳細情報収集）")
+        print("=" * 70)
+
+        # 製品名を取得
+        product_name = self._extract_product_name(kickstarter_url, self.collected_data)
+        product_description = self.collected_data.get('kickstarter', {}).get('description', '')
+
+        self.web_research_data = self.web_researcher.research_product(
+            kickstarter_url=kickstarter_url,
+            product_name=product_name,
+            product_description=product_description
+        )
+
+        # Web調査結果をcollected_dataにマージ
+        self.collected_data['web_research'] = self.web_research_data
+
         # Phase 2: 収支計算
         print("\n" + "=" * 70)
         print("🧮 Phase 2: 収支計算")
         print("=" * 70)
         calc_engine = CalculationEngine(self.collected_data)
         self.calculation_results = calc_engine.calculate_all()
+
+        # Phase 2.5: 業界分析
+        print("\n" + "=" * 70)
+        print("📊 Phase 2.5: 業界分析")
+        print("=" * 70)
+        kickstarter_data = self.collected_data.get('kickstarter', {})
+        self.industry_analysis = self.industry_analyzer.analyze(
+            web_research_data=self.web_research_data,
+            kickstarter_data=kickstarter_data
+        )
+        self.collected_data['industry_analysis'] = self.industry_analysis
+
+        # Phase 2.6: 競合分析
+        print("\n" + "=" * 70)
+        print("🎯 Phase 2.6: 競合分析")
+        print("=" * 70)
+        self.competitor_analysis = self.competitor_analyzer.analyze(
+            web_research_data=self.web_research_data,
+            calculation_data=self.calculation_results
+        )
+        self.collected_data['competitor_analysis'] = self.competitor_analysis
+
+        # Phase 2.7: 厳格評価
+        print("\n" + "=" * 70)
+        print("⚠️ Phase 2.7: 厳格評価")
+        print("=" * 70)
+        self.strict_evaluation = self.strict_evaluator.evaluate(
+            web_research_data=self.web_research_data,
+            calculation_data=self.calculation_results,
+            industry_analysis=self.industry_analysis,
+            competitor_analysis=self.competitor_analysis
+        )
+        self.collected_data['strict_evaluation'] = self.strict_evaluation
 
         # Phase 3: レポート生成
         print("\n" + "=" * 70)
@@ -112,6 +182,19 @@ class KickstarterAnalyzerV2:
 
         return self.report
 
+    def _extract_product_name(self, kickstarter_url, collected_data):
+        """製品名を抽出"""
+        # Kickstarterデータから製品名を取得
+        kickstarter_data = collected_data.get('kickstarter', {})
+        if kickstarter_data.get('name'):
+            return kickstarter_data['name']
+
+        # URLからプロジェクト名を抽出
+        project_slug = kickstarter_url.split('/')[-1]
+        # ハイフンをスペースに変換、最初の数ワードを取得
+        words = project_slug.replace('-', ' ').split()[:5]
+        return ' '.join(words).title()
+
     def _save_results(self, output_dir, kickstarter_url):
         """結果をファイルに保存"""
         os.makedirs(output_dir, exist_ok=True)
@@ -122,17 +205,38 @@ class KickstarterAnalyzerV2:
         # プロジェクト名を抽出
         project_name = kickstarter_url.split('/')[-1][:30].replace('-', '_')
 
-        # 収集データ（JSON）
+        # 収集データ（JSON）- 全分析結果を含む
         collected_path = os.path.join(output_dir, f"{timestamp}_{project_name}_data.json")
         with open(collected_path, 'w', encoding='utf-8') as f:
             json.dump(self.collected_data, f, ensure_ascii=False, indent=2)
-        print(f"  ✓ 収集データ: {collected_path}")
+        print(f"  ✓ 収集データ（全分析結果含む）: {collected_path}")
 
         # 計算結果（JSON）
         calc_path = os.path.join(output_dir, f"{timestamp}_{project_name}_calc.json")
         with open(calc_path, 'w', encoding='utf-8') as f:
             json.dump(self.calculation_results, f, ensure_ascii=False, indent=2)
         print(f"  ✓ 計算結果: {calc_path}")
+
+        # 業界分析結果（JSON）
+        if self.industry_analysis:
+            industry_path = os.path.join(output_dir, f"{timestamp}_{project_name}_industry.json")
+            with open(industry_path, 'w', encoding='utf-8') as f:
+                json.dump(self.industry_analysis, f, ensure_ascii=False, indent=2)
+            print(f"  ✓ 業界分析: {industry_path}")
+
+        # 競合分析結果（JSON）
+        if self.competitor_analysis:
+            competitor_path = os.path.join(output_dir, f"{timestamp}_{project_name}_competitor.json")
+            with open(competitor_path, 'w', encoding='utf-8') as f:
+                json.dump(self.competitor_analysis, f, ensure_ascii=False, indent=2)
+            print(f"  ✓ 競合分析: {competitor_path}")
+
+        # 厳格評価結果（JSON）
+        if self.strict_evaluation:
+            evaluation_path = os.path.join(output_dir, f"{timestamp}_{project_name}_evaluation.json")
+            with open(evaluation_path, 'w', encoding='utf-8') as f:
+                json.dump(self.strict_evaluation, f, ensure_ascii=False, indent=2)
+            print(f"  ✓ 厳格評価: {evaluation_path}")
 
         # レポート（TXT）
         report_path = os.path.join(output_dir, f"{timestamp}_{project_name}_report.txt")

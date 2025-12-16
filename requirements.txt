@@ -26,3 +26,4 @@ playwright>=1.40.0
 # Document Generation
 python-docx>=1.2.0
 markdown>=3.10
+duckduckgo-search>=6.0.0

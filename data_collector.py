@@ -153,7 +153,7 @@ class DataCollector:
         # ========================================
         # Phase 1: Kickstarterデータ取得（必須）
         # ========================================
-        print("\n[1/7] Kickstarter データ取得中...")
+        print("\n[1/9] Kickstarter データ取得中...")
         self._collect_kickstarter(kickstarter_url)
 
         # Kickstarterデータの検証
@@ -183,15 +183,15 @@ class DataCollector:
         # Phase 2: 補助データ取得
         # ========================================
         # 2. Kicktraqデータ取得
-        print("\n[2/7] Kicktraq データ取得中...")
+        print("\n[2/9] Kicktraq データ取得中...")
         self._collect_kicktraq(kickstarter_url)
 
         # 3. BackerKitデータ取得
-        print("\n[3/7] BackerKit データ取得中...")
+        print("\n[3/9] BackerKit データ取得中...")
         self._collect_backerkit(kickstarter_url)
 
         # 4. 為替レート取得
-        print("\n[4/7] 為替レート取得中...")
+        print("\n[4/9] 為替レート取得中...")
         self._collect_exchange_rate()
 
         # ========================================
@@ -207,17 +207,33 @@ class DataCollector:
         else:
             print(f"  検索キーワード: {product_keywords}")
 
-        # 5. Amazon.co.jp検索
-        print("\n[5/7] Amazon.co.jp 検索中...")
+        # 5. Amazon.co.jp検索（ブランド名）
+        print("\n[5/9] Amazon.co.jp 検索中...")
         self._collect_amazon_jp(product_keywords)
 
-        # 6. Makuake検索
-        print("\n[6/7] Makuake 検索中...")
+        # 6. Makuake検索（ブランド名）
+        print("\n[6/9] Makuake 検索中（ブランド名）...")
         self._collect_makuake(product_keywords)
 
-        # 7. CAMPFIRE検索
-        print("\n[7/7] CAMPFIRE 検索中...")
+        # 7. CAMPFIRE検索（ブランド名）
+        print("\n[7/9] CAMPFIRE 検索中（ブランド名）...")
         self._collect_campfire(product_keywords)
+
+        # ========================================
+        # Phase 4: カテゴリ別競合検索
+        # ========================================
+        # 8. カテゴリキーワードで競合製品を検索
+        print("\n[8/9] カテゴリ別競合製品検索中...")
+        category_keywords = self._extract_category_keywords()
+        if category_keywords:
+            print(f"  カテゴリキーワード: {category_keywords}")
+            self._collect_category_competitors(category_keywords)
+        else:
+            print("  ⚠️ カテゴリキーワードを抽出できませんでした")
+
+        # 9. Kickstarter価格帯（rewards）詳細取得
+        print("\n[9/9] Kickstarter 価格帯詳細取得中...")
+        self._collect_kickstarter_rewards(kickstarter_url)
 
         # ブラウザを閉じる
         self._close_browser()
@@ -592,12 +608,14 @@ class DataCollector:
     def _extract_keywords(self):
         """収集済みデータからキーワードを抽出
 
-        シンプルな戦略:
-        - Kickstarterの製品名（ブランド名）をそのまま検索キーワードとして使用
-        - マッピングは使わない（数百の製品URLがあり、カテゴリは予測不可能）
+        改善された戦略:
+        - Kickstarterの製品名からブランド名を抽出
+        - URLのcreator部分からブランド名を推定
+        - 一般的すぎる単語（Pulse, Air等）の場合はURLから補完
 
-        例: "MAXPRO Air: 100+lbs of Resistance. Just 2.5lbs of Gear."
-        → ["MAXPRO", "MAXPRO Air"]
+        例: "Pulse - Your Camera, Upgraded."
+        URL: kickstarter.com/projects/alpinelabs/pulse-your-camera-upgraded
+        → ["Alpine Labs", "Alpine Labs Pulse"]
         """
         # 除外する一般的な単語（冠詞、前置詞など）
         STOP_WORDS = {
@@ -610,51 +628,82 @@ class DataCollector:
             'now', 'world', 'first', 'best', 'most', 'ultimate', 'perfect',
         }
 
+        # 一般的すぎて検索に適さない単語
+        TOO_GENERIC_WORDS = {
+            'pulse', 'air', 'pro', 'max', 'mini', 'lite', 'one', 'go', 'smart',
+            'power', 'ultra', 'plus', 'super', 'mega', 'nano', 'micro', 'basic',
+            'home', 'life', 'tech', 'gear', 'kit', 'pack', 'set', 'box', 'hub',
+        }
+
         keywords = []
 
         ks_data = self.collected_data.get("kickstarter", {})
         title = ks_data.get("title", "")
+        source_url = ks_data.get("source_url", "")
 
         if not title:
             return []
 
+        # URLからクリエイター名（ブランド名の候補）を抽出
+        # 例: kickstarter.com/projects/alpinelabs/... → "alpinelabs" → "Alpine Labs"
+        creator_name = ""
+        if "/projects/" in source_url:
+            url_parts = source_url.split("/projects/")[-1].split("/")
+            if url_parts:
+                creator_slug = url_parts[0]
+                # 数字のみの場合（ユーザーID）はスキップ
+                if creator_slug.isdigit():
+                    creator_name = ""
+                else:
+                    # alpinelabs → Alpine Labs のように整形
+                    # まず知られているパターンを分割（labs, tech, studio等）
+                    known_suffixes = ['labs', 'tech', 'studio', 'design', 'works', 'games', 'media']
+                    for suffix in known_suffixes:
+                        if creator_slug.lower().endswith(suffix) and len(creator_slug) > len(suffix):
+                            prefix = creator_slug[:-len(suffix)]
+                            creator_slug = f"{prefix} {suffix}"
+                            break
+                    # キャメルケースの分割
+                    creator_name = re.sub(r'([a-z])([A-Z])', r'\1 \2', creator_slug)
+                    creator_name = creator_name.replace('-', ' ').replace('_', ' ')
+                    creator_name = ' '.join(word.capitalize() for word in creator_name.split())
+
         # タイトルからブランド名/製品名を抽出
-        # コロン、ハイフン、パイプなどで分割して最初の部分を取得
-        # 例: "MAXPRO Air: 100+lbs of Resistance..." → "MAXPRO Air"
         parts = re.split(r'[:\-–|]', title)
+        product_name = ""
         if parts:
             brand_part = parts[0].strip()
-            # 英数字を含む有効なブランド名のみ
             if re.search(r'[A-Za-z0-9]', brand_part) and len(brand_part) >= 2:
                 words = brand_part.split()
                 if words:
-                    # 最初の単語（ブランド名）を追加（ストップワードでない場合）
                     first_word = words[0]
                     if len(first_word) >= 2 and first_word.lower() not in STOP_WORDS:
-                        keywords.append(first_word)
+                        product_name = first_word
 
-                    # ストップワードで始まる場合、2番目以降の単語を試す
-                    if not keywords and len(words) > 1:
-                        for word in words[1:]:
-                            if len(word) >= 2 and word.lower() not in STOP_WORDS:
-                                keywords.append(word)
-                                break
+        # キーワードの構築
+        # 1. クリエイター名（ブランド名）を最優先で追加
+        if creator_name and len(creator_name) >= 3:
+            keywords.append(creator_name)
 
-                    # フルネーム（製品名）も追加（異なる場合）
-                    # ストップワードで始まる場合は除去して追加
-                    if len(brand_part) <= 50:
-                        clean_brand = brand_part
-                        if words[0].lower() in STOP_WORDS:
-                            clean_brand = ' '.join(words[1:]).strip()
-                        if clean_brand and clean_brand not in keywords:
-                            keywords.append(clean_brand)
+        # 2. 製品名が一般的すぎる場合は「ブランド名 + 製品名」を追加
+        if product_name:
+            if product_name.lower() in TOO_GENERIC_WORDS:
+                # 一般的な単語の場合、ブランド名と組み合わせる
+                if creator_name:
+                    keywords.append(f"{creator_name} {product_name}")
+            else:
+                # 固有名詞っぽい場合はそのまま追加
+                keywords.append(product_name)
+                # ブランド名との組み合わせも追加
+                if creator_name and creator_name.lower() != product_name.lower():
+                    keywords.append(f"{creator_name} {product_name}")
 
         # 重複を除去
         seen = set()
         unique_keywords = []
         for kw in keywords:
             kw_lower = kw.lower()
-            if kw_lower not in seen and kw_lower not in STOP_WORDS:
+            if kw_lower not in seen and len(kw) >= 3:
                 seen.add(kw_lower)
                 unique_keywords.append(kw)
 
@@ -1028,6 +1077,332 @@ class DataCollector:
             print("  類似製品なし")
 
         self.collected_data["campfire"] = data
+
+    def _extract_category_keywords(self):
+        """製品カテゴリに基づく検索キーワードをAIで生成
+
+        OpenAI APIを使用して製品説明から日本語の検索キーワードを生成
+        マッピングは使用しない（数百のURLがあり、カテゴリは予測不可能なため）
+        """
+        ks_data = self.collected_data.get("kickstarter", {})
+        title = ks_data.get("title", "")
+        description = ks_data.get("description", "")
+
+        if not title and not description:
+            return []
+
+        # OpenAI APIでカテゴリキーワードを生成
+        if not self.openai_client:
+            print("  ⚠️ OpenAI APIキーがないためカテゴリ推定をスキップ")
+            return []
+
+        try:
+            prompt = f"""以下のKickstarter製品について、日本のクラウドファンディング（Makuake, CAMPFIRE）で類似製品を検索するための日本語キーワードを3〜5個生成してください。
+
+製品名: {title}
+説明: {description}
+
+回答形式（JSONのみ、説明不要）:
+["キーワード1", "キーワード2", "キーワード3"]
+
+注意:
+- 日本語のみ（英語不可）
+- 製品カテゴリ名や一般的な呼称を使用
+- 例: フィットネス器具→「トレーニング」「筋トレ」「ホームジム」
+- 例: ワイヤレスイヤホン→「イヤホン」「ワイヤレス」「Bluetooth」
+- 例: コーヒーメーカー→「コーヒー」「ドリップ」「カフェ」"""
+
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=200,
+                temperature=0.3
+            )
+
+            result_text = response.choices[0].message.content.strip()
+
+            # JSONパース
+            import json
+            # ```json ... ``` を除去
+            if "```" in result_text:
+                result_text = re.sub(r'```json\s*', '', result_text)
+                result_text = re.sub(r'```\s*', '', result_text)
+
+            keywords = json.loads(result_text)
+
+            if isinstance(keywords, list) and len(keywords) > 0:
+                print(f"  ✓ AIカテゴリキーワード: {keywords}")
+                return keywords[:5]
+
+        except Exception as e:
+            print(f"  ⚠️ カテゴリキーワード生成エラー: {e}")
+
+        return []
+
+    def _collect_category_competitors(self, category_keywords):
+        """カテゴリキーワードで競合製品を検索（Makuake/CAMPFIRE）"""
+        if not category_keywords:
+            return
+
+        # 既存のcollected_dataにカテゴリ競合を追加
+        if "category_competitors" not in self.collected_data:
+            self.collected_data["category_competitors"] = {
+                "search_keywords": category_keywords,
+                "makuake": [],
+                "campfire": []
+            }
+
+        browser = self._get_browser()
+        if not browser:
+            return
+
+        # Makuake検索
+        for keyword in category_keywords[:2]:
+            search_url = f"https://www.makuake.com/discover/projects/?keyword={quote(keyword)}"
+            page = None
+            try:
+                page = self._context.new_page()
+                page.goto(search_url, wait_until='domcontentloaded', timeout=30000)
+                page.wait_for_timeout(2000)
+
+                html = page.content()
+                soup = BeautifulSoup(html, 'html.parser')
+
+                project_links = soup.select('a[href*="/project/"]')
+                print(f"  Makuake「{keyword}」: {len(project_links)}件")
+
+                seen_urls = set()
+                for link in project_links[:10]:
+                    try:
+                        href = link.get('href', '')
+                        if not href or '/project/' not in href:
+                            continue
+
+                        if href.startswith('/'):
+                            project_url = f"https://www.makuake.com{href}"
+                        else:
+                            project_url = href
+
+                        base_url = project_url.split('?')[0].rstrip('/')
+                        if base_url in seen_urls:
+                            continue
+                        seen_urls.add(base_url)
+
+                        full_text = link.get_text(strip=True)
+                        if not full_text or len(full_text) < 10:
+                            continue
+
+                        # 金額抽出
+                        funding_jpy = 0
+                        amount_match = re.search(r'[￥¥]([0-9]{1,3}(?:,[0-9]{3})*)', full_text)
+                        if amount_match:
+                            funding_jpy = int(amount_match.group(1).replace(',', ''))
+
+                        # 達成率
+                        percent = 0
+                        percent_match = re.search(r'(\d+)%', full_text)
+                        if percent_match:
+                            percent = int(percent_match.group(1))
+
+                        # タイトル
+                        title = full_text[:80]
+                        if amount_match:
+                            title = full_text[:amount_match.start()].strip()
+
+                        if not title or len(title) < 5:
+                            continue
+
+                        # 重複チェック
+                        existing_urls = [p["url"] for p in self.collected_data["category_competitors"]["makuake"]]
+                        if base_url not in existing_urls:
+                            self.collected_data["category_competitors"]["makuake"].append({
+                                "title": title[:100],
+                                "url": base_url,
+                                "funding_amount_jpy": funding_jpy,
+                                "percent_funded": percent,
+                                "search_keyword": keyword,
+                                "platform": "Makuake"
+                            })
+                            print(f"    ✓ {title[:30]}... ({funding_jpy:,}円)")
+
+                    except Exception:
+                        continue
+
+            except Exception as e:
+                print(f"  ⚠️ Makuake({keyword}): {e}")
+            finally:
+                if page:
+                    try:
+                        page.close()
+                    except:
+                        pass
+
+        # CAMPFIRE検索
+        for keyword in category_keywords[:2]:
+            search_url = f"https://camp-fire.jp/projects/search?word={quote(keyword)}"
+            page = None
+            try:
+                page = self._context.new_page()
+                page.goto(search_url, wait_until='domcontentloaded', timeout=30000)
+                page.wait_for_timeout(2000)
+
+                html = page.content()
+                soup = BeautifulSoup(html, 'html.parser')
+
+                project_links = soup.select('a[href*="/projects/"][href*="/view"]')
+                print(f"  CAMPFIRE「{keyword}」: {len(project_links)}件")
+
+                seen_urls = set()
+                for link in project_links[:10]:
+                    try:
+                        href = link.get('href', '')
+                        if not href:
+                            continue
+
+                        if href.startswith('/'):
+                            project_url = f"https://camp-fire.jp{href}"
+                        else:
+                            project_url = href
+
+                        base_url = project_url.split('?')[0].rstrip('/')
+                        if base_url in seen_urls:
+                            continue
+                        seen_urls.add(base_url)
+
+                        full_text = link.get_text(strip=True)
+                        if not full_text or len(full_text) < 10:
+                            continue
+
+                        # 無効なタイトルを除外
+                        invalid = ["プロジェクト公開の通知", "通知を受け取る", "お気に入り", "ログイン"]
+                        if any(inv in full_text for inv in invalid):
+                            continue
+
+                        # 金額
+                        funding_jpy = 0
+                        amount_match = re.search(r'([\d,]+)円', full_text)
+                        if amount_match:
+                            funding_jpy = int(amount_match.group(1).replace(',', ''))
+
+                        # 達成率
+                        percent = 0
+                        percent_match = re.search(r'(\d+)%', full_text)
+                        if percent_match:
+                            percent = int(percent_match.group(1))
+
+                        # タイトル整形
+                        title = full_text
+                        prefixes = ['募集終了FINISH', '募集終了SUCCESS', '募集終了', 'FINISH', 'SUCCESS']
+                        for prefix in prefixes:
+                            if title.startswith(prefix):
+                                title = title[len(prefix):].strip()
+                        title = re.sub(r'(FINISH|SUCCESS|FUNDED)現在.*$', '', title).strip()
+                        title = re.sub(r'\d{1,3}(,\d{3})*円.*$', '', title).strip()
+
+                        if not title or len(title) < 5:
+                            continue
+
+                        # 重複チェック
+                        existing_urls = [p["url"] for p in self.collected_data["category_competitors"]["campfire"]]
+                        if base_url not in existing_urls:
+                            self.collected_data["category_competitors"]["campfire"].append({
+                                "title": title[:100],
+                                "url": base_url,
+                                "funding_amount_jpy": funding_jpy,
+                                "percent_funded": percent,
+                                "search_keyword": keyword,
+                                "platform": "CAMPFIRE"
+                            })
+                            print(f"    ✓ {title[:30]}... ({funding_jpy:,}円)")
+
+                    except Exception:
+                        continue
+
+            except Exception as e:
+                print(f"  ⚠️ CAMPFIRE({keyword}): {e}")
+            finally:
+                if page:
+                    try:
+                        page.close()
+                    except:
+                        pass
+
+        # 結果サマリー
+        mk_count = len(self.collected_data["category_competitors"]["makuake"])
+        cf_count = len(self.collected_data["category_competitors"]["campfire"])
+        print(f"  カテゴリ競合合計: Makuake {mk_count}件, CAMPFIRE {cf_count}件")
+
+    def _collect_kickstarter_rewards(self, kickstarter_url):
+        """Kickstarterの価格帯（rewards）詳細を取得"""
+        # 既にrewardsが取得されている場合はスキップ
+        ks_data = self.collected_data.get("kickstarter", {})
+        if ks_data.get("rewards"):
+            print("  ✓ 既に取得済み")
+            return
+
+        browser = self._get_browser()
+        if not browser:
+            return
+
+        # Rewardsページにアクセス
+        base_url = self._normalize_kickstarter_url(kickstarter_url)
+
+        page = None
+        try:
+            page = self._context.new_page()
+            page.goto(base_url, wait_until='load', timeout=60000)
+            page.wait_for_timeout(3000)
+
+            # Rewardsセクションを探す
+            rewards = []
+            html = page.content()
+            soup = BeautifulSoup(html, 'html.parser')
+
+            # 方法1: data-rewards-listを探す
+            reward_elements = soup.select('[class*="reward"]')
+
+            for elem in reward_elements[:20]:
+                text = elem.get_text(strip=True)
+
+                # 価格を抽出
+                price_match = re.search(r'\$([0-9,]+)', text)
+                if not price_match:
+                    continue
+
+                price_usd = int(price_match.group(1).replace(',', ''))
+
+                # タイトル/説明を抽出（価格の前後のテキスト）
+                title = text[:100]
+
+                # バッカー数を抽出
+                backers = 0
+                backers_match = re.search(r'(\d+)\s*backers?', text, re.I)
+                if backers_match:
+                    backers = int(backers_match.group(1))
+
+                # 重複チェック
+                if not any(r["price_usd"] == price_usd for r in rewards):
+                    rewards.append({
+                        "price_usd": price_usd,
+                        "title": title,
+                        "backers": backers
+                    })
+                    print(f"  ✓ ${price_usd}: {title[:40]}...")
+
+            # rewardsをソートして保存
+            rewards.sort(key=lambda x: x["price_usd"])
+            self.collected_data["kickstarter"]["rewards"] = rewards[:10]
+
+            print(f"  価格帯: {len(rewards)}件取得")
+
+        except Exception as e:
+            print(f"  ⚠️ Rewards取得エラー: {e}")
+        finally:
+            if page:
+                try:
+                    page.close()
+                except:
+                    pass
 
     def get_summary(self):
         """収集データのサマリーを取得"""
