@@ -245,10 +245,14 @@ class GoogleSheetsClient:
         text = re.sub(url_pattern, replace_url, text)
 
         # 括弧内のURLの前後に半角スペースを追加（メールクライアントのURL自動検出対策）
-        # （URL） → （ URL ）
-        # (URL) → ( URL )
-        text = re.sub(r'（\s*(<a [^>]+>[^<]+</a>)\s*）', r'（ \1 ）', text)
-        text = re.sub(r'\(\s*(<a [^>]+>[^<]+</a>)\s*\)', r'( \1 )', text)
+        # （の直後にURLがある場合 → （ URL
+        # URLの直後に）がある場合 → URL ）
+        # 全角括弧
+        text = re.sub(r'（(<a )', r'（ \1', text)  # （URL → （ URL
+        text = re.sub(r'(</a>)）', r'\1 ）', text)  # URL） → URL ）
+        # 半角括弧
+        text = re.sub(r'\((<a )', r'( \1', text)  # (URL → ( URL
+        text = re.sub(r'(</a>)\)', r'\1 )', text)  # URL) → URL )
 
         # 日本語テキストの場合、「。」の後に改行を追加（既に改行がある場合は除く）
         if '。' in text:
