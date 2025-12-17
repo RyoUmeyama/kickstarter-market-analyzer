@@ -1,76 +1,66 @@
 # Kickstarter Market Analyzer
 
-Kickstarter製品の日本市場参入提案メールを自動生成するシステムです。
+Kickstarter製品の日本市場参入提案レポートを自動生成するシステムです。
 
 ## 主な機能
 
-1. **管理表からの自動抽出**
-   - 管理表のステータス（F列）でフィルタリング
-   - 選択したステータスの行を自動でkickstarterシートにコピー
-   - ステータスに応じたテンプレートを自動選択
-   - 処理件数の上限設定（10/20/30/50/100件から選択）
+### 1. V2詳細レポート生成システム
 
-2. **テンプレートベースのメール生成**
-   - Google Sheetsでテンプレートを管理
-   - ステータス→テンプレート対応を設定シートで管理
-   - テンプレートの追加・編集が自由に可能
+**プロのマーケッターによる16セクション構成の詳細レポート**を自動生成：
 
-3. **OpenAI API統合（任意）**
-   - テンプレートにプロンプト（A3セル）を設定すると、OpenAI APIで市場分析レポートを生成
-   - プロンプトがなければ、テンプレート本文をそのまま使用
-   - **日本語プロンプト→英語翻訳→API送信**（API精度向上のため）
+| セクション | 内容 |
+|-----------|------|
+| エグゼクティブサマリー | Kickstarter実績、成功確度、推奨価格帯、主要リスク |
+| ① 製品特徴・日本市場での通用度評価 | 製品仕様、日本での通用性分析 |
+| ② Kickstarter販売価格 | 平均Pledge、想定リテール価格 |
+| ③ 調達実績 | 調達額、バッカー数、達成率 |
+| ④ 日本CFでの既出可否 | Makuake/CAMPFIRE検索結果 |
+| ⑤ 日本EC（Amazon等）での既出可否 | Amazon.co.jp流通状況 |
+| ⑥ 日本CFにおける主要競合比較 | 実データに基づく競合分析 |
+| ⑦ ターゲット顧客・マーケティング方向性 | ターゲット層、訴求ポイント、プロモーション戦略 |
+| ⑧ 日本での独占販売契約の可能性 | 難易度、交渉条件 |
+| ⑨ 規制（PSE/技適） | 認証要否、費用、期間 |
+| ⑩ 想定仕入単価（FOB） | MSRP、FOB推定（楽観/標準/悲観） |
+| ⑪ 収支シミュレーション（Makuake） | 価格帯別・仕入れ別の粗利シミュレーション |
+| ⑫ 日本EC成功可能性・課題 | Amazon等での展開可能性 |
+| ⑬ 量販への卸の可能性・課題 | ドン・キホーテ等への卸可能性 |
+| ⑭ Makuakeで利益100万円超の可否 | 到達条件、必要台数 |
+| ⑮ リスク分析と対応策 | 市場/オペレーション/規制リスク |
+| ⑯ 最終判定（出品提案・成功戦略） | 成功確度、必須条件、推奨アクション |
 
-4. **日本市場の類似製品検索**
-   - PlaywrightによるMakuake・CAMPFIRE自動検索
-   - 検索結果（製品名、資金調達額、URL、達成率）をレポートに挿入
-   - **実データのみ使用**（架空のデータは生成しない）
-   - GPT生成の具体的なキーワードで検索（汎用的なカテゴリ名は使用しない）
-   - **CAMPFIRE**の海外IP制限に対応（Bright Dataプロキシ経由で日本IPからアクセス）
+### 2. 管理表からの自動抽出
 
-5. **Kickstarterデータ取得**
-   - 直接接続（Playwright）でKickstarter製品情報を取得
-   - **Kicktraq**（サードパーティサイト）からのフォールバック取得
-   - タイトル、資金調達額、バッカー数、目標金額、達成率を自動抽出
-   - 取得失敗時は正直に「データ取得失敗」として報告
+- 管理表のステータス（F列）でフィルタリング
+- 選択したステータスの行を自動でkickstarterシートにコピー
+- ステータスに応じたテンプレートを自動選択
+- 処理件数の上限設定（**1件から100件**まで選択可能）
 
-6. **データ正確性の保証**
-   - Makuake・CAMPFIREから取得した実データのみをレポートに使用
-   - 架空の製品名・URL・金額は生成禁止
-   - **価格情報**: Kickstarterページへの参照を促す（捏造防止）
-   - **取得できなかったデータは絶対に推測しない**（goal、達成率、残り日数など）
-   - **すべての予測・見積もりは類似製品の実データを根拠として提示**
-   - 根拠となるデータがない場合は「詳細な市場調査が必要」と記載
+### 3. 多角的データ収集
 
-7. **スプレッドシートでのプロンプト管理**
-   - 「設定」シートで共通プロンプト（A2）とシステム設定（G2）を管理
-   - お客様がA2を編集することでレポートの質・スタイルを調整可能
-   - コード変更なしでプロンプト調整が可能
-   - **業界データ**（L列）: 市場統計をソース付きで管理し、レポートに引用
+| データソース | 取得内容 |
+|-------------|----------|
+| Kickstarter | タイトル、調達額、バッカー数、目標金額 |
+| Kicktraq | 達成率、バッカー統計（フォールバック） |
+| BackerKit | 平均Pledge、詳細統計 |
+| Amazon.co.jp | 同一ブランド・類似製品の流通状況 |
+| Makuake | 競合製品、カテゴリ別プロジェクト |
+| CAMPFIRE | 競合製品（日本IPプロキシ経由） |
+| DuckDuckGo | Web検索による補足情報 |
 
-8. **自動翻訳対応**
-   - Google SheetsのGOOGLETRANSLATE関数により英語→日本語を自動翻訳
-   - **会社名・製品名は英語のまま保持**（SUBSTITUTE関数で自動処理）
+### 4. AI分析エンジン
 
-9. **テンプレート構造の保持**
-   - `{{レポート}}`プレースホルダーでテンプレートを分割
-   - 署名欄や参照情報など、プレースホルダー後の内容も確実に保持
-   - AI生成レポートがテンプレート構造を破壊しない
+- **WebResearcher**: Web調査による製品・市場情報収集
+- **IndustryAnalyzer**: 業界分析（市場規模、成熟度、参入障壁）
+- **CompetitorAnalyzer**: 競合分析（直接競合、間接競合、差別化戦略）
+- **StrictEvaluator**: 厳格評価（データ品質、レッドフラグ、Go/No-Go判定）
+- **CalculationEngine**: 収支シミュレーション（FOB推定、価格帯別利益計算）
 
-10. **URL表記の最適化**
-   - URLは文中に自然に埋め込み（例: 「製品名は〇〇円を調達。詳細: https://...」）
-   - 括弧でURLを囲まない（翻訳時の問題を回避）
-   - 末尾の「情報源」セクションは自動削除
-   - 偽URL（www.example.com等）は自動削除
+### 5. データ正確性の保証
 
-11. **HTMLメール対応**
-    - URLを`<a>`タグでクリック可能なリンクに自動変換
-    - 改行を`<br>`タグに変換
-    - Thunderbirdメールマージで一括送信可能
-
-12. **プロマーケター視点のレポート**
-    - 15年以上の経験を持つシニアマーケティングコンサルタントとして分析
-    - 具体的で実行可能な戦略提案
-    - 実データに基づく売上予測
+- 実データのみ使用（架空のデータは生成禁止）
+- すべての数値にソースURLを記載
+- AI推定の競合他社名は記載禁止
+- 取得できなかったデータは「データ取得失敗」として正直に報告
 
 ## システム構成
 
@@ -83,58 +73,50 @@ Octoparse（スクレイピング）
     ↓
 GitHub Actions「管理表から抽出してメール生成」
     ↓
-kickstarterシート（メール本文生成）
+V2レポート生成（6パート分割生成）
+    ↓
+kickstarterシート（メール本文）
     ↓
 CSV出力 → Thunderbirdメールマージ → 送信
 ```
 
-### シート構成
+### プロジェクト構成
 
-| シート名 | 用途 |
-|---------|------|
-| 管理表（AMANE） | データ管理。F列でステータス管理 |
-| kickstarter | メール生成用。管理表から抽出したデータを処理 |
-| 設定 | 共通プロンプト、システム設定、ステータス→テンプレート対応表 |
-| ①〜⑤テンプレート | 各ステータス用のメールテンプレート |
-
-### 設定シート
-
-| セル | 内容 | 編集 |
-|------|------|------|
-| A2 | 共通プロンプト（レポートの質・スタイル） | ✓ 編集可 |
-| G2 | システム設定（テンプレート保持ルール） | ✓ 編集可 |
-| H2 | 翻訳ルール | ✓ 編集可 |
-| I2 | 出力形式ルール | ✓ 編集可 |
-| J2 | AIシステムプロンプト（人格設定） | ✓ 編集可 |
-| K2 | データルール（捏造禁止ルール） | ✓ 編集可 |
-| L列 | 業界データ（市場統計、ソース付き） | ✓ 編集可 |
-| C3:D以降 | ステータス→テンプレート対応表 | ✓ 編集可 |
-| E列 | 各ステータスの件数（自動計算） | - |
-
-#### A2: 共通プロンプト（編集可能）
-レポートの質とスタイルを調整できます：
-- 文章量の目安（各セクション5-8文など）
-- 類似製品の分析方法
-- 戦略の具体性
-- 文体とトーン
-- 金額表記ルール
-
-#### G2: システム設定
-レポート生成の基本ルールを設定できます：
-- テンプレート構造の保持ルール
-- データ正確性のルール
-
-**注**: 翻訳ルール・出力形式ルール・URL形式などの技術的なルールはプログラム内にハードコードされています。
-
-### 管理表の列構成
-
-| 列 | 内容 |
-|----|------|
-| A | 番号 |
-| F | 状況（ステータス） |
-| Y | name（メーカー名） |
-| Z | email（送信先メールアドレス） |
-| AA | URL（Kickstarter URL） |
+```
+kickstarter-market-analyzer/
+├── .github/workflows/
+│   ├── extract_and_generate.yml    # メイン: 管理表から抽出してメール生成
+│   ├── sync_workflow_options.yml   # ステータス選択肢を同期
+│   └── fix_template_typos.yml      # テンプレート誤字修正
+├── main.py                         # メール生成メインスクリプト
+├── analyzer_v2.py                  # V2分析オーケストレーター
+├── report_generator_v2.py          # V2レポート生成（6パート分割）
+├── report_generator.py             # レポート生成（統合）
+├── data_collector.py               # データ収集（Kickstarter/CF/Amazon）
+├── web_researcher.py               # Web調査（DuckDuckGo検索）
+├── calculation_engine.py           # 収支計算エンジン
+├── industry_analyzer.py            # 業界分析
+├── competitor_analyzer.py          # 競合分析
+├── strict_evaluator.py             # 厳格評価
+├── market_search.py                # 市場検索（Makuake/CAMPFIRE）
+├── sheets_client.py                # Google Sheets連携
+├── extract_from_management.py      # 管理表からの抽出
+├── fix_template_typos.py           # テンプレート誤字修正
+├── test_single_report.py           # 単一製品テスト
+├── sync_workflow_options.py        # 選択肢同期
+├── setup_industry_data.py          # 業界データ設定（初期設定用）
+├── update_settings.py              # 設定更新（初期設定用）
+├── templates/
+│   └── sample_report_v2.md         # レポートサンプル
+├── docs/
+│   ├── progress_report_20241209.md # 進捗報告
+│   └── market_research_expansion_proposal.md
+├── requirements.txt
+├── CLAUDE.md                       # Claude Code設定
+├── CLIENT_SETUP_GUIDE.md           # クライアント向けセットアップガイド
+├── QUICK_START_GUIDE.md            # クイックスタートガイド
+└── README.md
+```
 
 ## 日常的な使い方
 
@@ -147,7 +129,7 @@ CSV出力 → Thunderbirdメールマージ → 送信
 1. GitHubリポジトリの「Actions」タブを開く
 2. **「管理表から抽出してメール生成」** を選択
 3. 「Run workflow」ボタンをクリック
-4. **ステータス**と**処理件数の上限**を選択
+4. **ステータス**と**処理件数の上限**を選択（1件から100件）
 5. 「Run workflow」をクリックして実行
 
 ### 3. 結果確認・メール送信
@@ -155,144 +137,68 @@ CSV出力 → Thunderbirdメールマージ → 送信
 1. Google Sheetsでkickstarterシートを確認
 2. CSV出力 → Thunderbirdメールマージで送信
 
-## テンプレート・ステータスの追加
+## ローカルでのテスト
 
-### 新しいテンプレートを追加する場合
+単一製品のレポート生成をテストできます：
 
-1. **新しいシートを作成**
-2. **テンプレート構造**:
-   ```
-   A1: 英語件名
-   B1: =GOOGLETRANSLATE(A1, "en", "ja")
+```bash
+# デフォルトURL（AKASO Sight）でテスト
+python test_single_report.py
 
-   A2: 英語本文（{{レポート}}プレースホルダーを含む）
-   B2: =GOOGLETRANSLATE(A2, "en", "ja")
-
-   A3: プロンプト（日本語、任意）
-   ```
-3. **設定シートのC:D列**に対応を追加
-4. **「ステータス選択肢を同期」** を実行
-
-### プレースホルダー
-
-- `{{URL}}`: Kickstarter URLに置換
-- `{{name}}`: メーカー名に置換
-- `{{レポート}}`: OpenAI生成レポートに置換
-
-### kickstarterシートの列構成
-
-| 列 | 内容 |
-|----|------|
-| A | NO（連番） |
-| B | product_url（Kickstarter URL） |
-| C | template（テンプレート名） |
-| D | name（メーカー名） |
-| E | to_email（送信先メールアドレス） |
-| F | jp_subject（日本語件名） |
-| G | en_subject（英語件名） |
-| H | jp_body（日本語本文 - GOOGLETRANSLATE関数） |
-| I | en_body（英語本文） |
-| J | jp_body_html（日本語本文HTML版） |
-| K | en_body_html（英語本文HTML版） |
-
-## プロジェクト構成
-
-```
-kickstarter-market-analyzer/
-├── .claude/
-│   └── CLAUDE.md                   # Claude Code用設定（Git push先など）
-├── .github/workflows/
-│   ├── extract_and_generate.yml    # 管理表から抽出してメール生成
-│   └── sync_workflow_options.yml   # ステータス選択肢を同期
-├── main.py                         # メール生成メインスクリプト
-├── extract_from_management.py      # 管理表からの抽出スクリプト
-├── sheets_client.py                # Google Sheets連携
-├── report_generator.py             # レポート生成（OpenAI API）
-├── market_search.py                # 類似製品検索（Playwright + Bright Data）
-├── setup_industry_data.py          # 業界データ設定スクリプト
-├── update_settings.py              # 設定シート更新スクリプト
-├── sync_workflow_options.py        # 選択肢同期スクリプト
-├── requirements.txt                # 依存関係
-├── CLAUDE.md                       # プロジェクト固有のClaude設定
-└── README.md                       # 本ドキュメント
+# 特定のURLでテスト
+python test_single_report.py "https://www.kickstarter.com/projects/xxx/yyy"
 ```
 
-## 共通プロンプト管理
+## シート構成
 
-### 共通プロンプトの編集
-
-1. スプレッドシートの「設定」シートを開く
-2. **A2セル**の内容を編集（日本語でOK）
-
-### 主要なルール（プログラム内にハードコード）
-
-- **データの正確性**: 市場調査結果の実データのみ使用
-- **偽URL禁止**: www.example.com等の架空URLは自動削除
-- **URL表記**: 文中に自然に埋め込み（括弧で囲まない）
-- **HTMLリンク**: URLは`<a>`タグでクリック可能に
-- **マークダウン禁止**: *, #, - 等の記号は使用しない
-- **改行**: セクション間のみ空行、文中は連続した段落
-
-### プロンプトの処理フロー
-
-```
-スプレッドシート（日本語プロンプト）
-    ↓
-自動で英語に翻訳
-    ↓
-OpenAI API（英語で送信、プロマーケター視点）
-    ↓
-レポート生成（英語）+ 後処理（偽URL削除等）
-    ↓
-Google Sheets書き込み
-    ├─ en_body（英語本文）
-    ├─ jp_body（GOOGLETRANSLATE関数で日本語翻訳）
-    ├─ en_body_html（英語HTML版、<a>タグ付き）
-    └─ jp_body_html（日本語HTML版、<a>タグ付き）
-```
+| シート名 | 用途 |
+|---------|------|
+| 管理表（AMANE） | データ管理。F列でステータス管理 |
+| kickstarter | メール生成用。管理表から抽出したデータを処理 |
+| 設定 | 共通プロンプト、システム設定、ステータス→テンプレート対応表 |
+| ①〜⑤テンプレート | 各ステータス用のメールテンプレート |
 
 ## 技術仕様
 
 ### 使用技術
+
 - Python 3.11+
+- OpenAI API (gpt-4o-mini / gpt-4o)
 - Google Sheets API (service account認証)
-- OpenAI API (gpt-4o-mini)
 - Playwright (headless Chromium)
-- Bright Data (プロキシサービス、CAMPFIRE海外IP制限対応)
+- Bright Data (日本IPプロキシ、CAMPFIRE海外IP制限対応)
+- DuckDuckGo Search API
 - GitHub Actions
 
 ### データ取得の優先順位
 
 1. **直接接続**（Playwright） - 無料
-2. **Kicktraq**（サードパーティ） - 無料、Kickstarter未インデックスの場合は不可
-3. **Bright Data プロキシ** - 有料、最後の手段
+2. **Kicktraq/BackerKit** - 無料フォールバック
+3. **Bright Data プロキシ** - 有料、CAMPFIRE等の日本IP制限対応
 
 ### 処理時間の目安
-- 1件あたり約1分（Kickstarter + Makuake/CAMPFIRE検索 + レポート生成）
-- 30件で約30分
+
+- 1件あたり約3-5分（V2詳細レポート生成含む）
+- GitHub Actions タイムアウト: 120分
 
 ### コスト目安
-- OpenAI API: 1回の処理で約3-5円（翻訳含む）
-- Bright Data: 必要時のみ使用（CAMPFIRE海外IP制限時）
-- 月間100件処理: 約300-500円 + プロキシ使用分
+
+- OpenAI API: 1回の処理で約10-20円（V2レポート6パート生成）
+- Bright Data: 必要時のみ使用
 
 ## 開発者向け情報
 
 ### Gitリポジトリ構成
-
-このプロジェクトは2つのリポジトリにpushする必要があります：
-
-| リモート | リポジトリ | 用途 |
-|---------|-----------|------|
-| origin | RyoUmeyama/kickstarter-market-analyzer | バックアップ |
-| client | koki4117/kickstarter-market-analyzer | **本番（GitHub Actions実行）** |
 
 ```bash
 # 両方にpush（必須）
 git push origin main && git push client main
 ```
 
-**重要**: `client`（koki4117）にpushしないとワークフローに反映されません。
+| リモート | リポジトリ | 用途 |
+|---------|-----------|------|
+| origin | RyoUmeyama/kickstarter-market-analyzer | バックアップ |
+| client | koki4117/kickstarter-market-analyzer | **本番（GitHub Actions実行）** |
 
 ### GitHub Secrets（koki4117リポジトリ）
 
@@ -301,17 +207,26 @@ git push origin main && git push client main
 | SPREADSHEET_ID | Google SpreadsheetのID |
 | OPENAI_API_KEY | OpenAI APIキー |
 | GOOGLE_CREDENTIALS_JSON | サービスアカウントの認証情報JSON |
-| BRIGHT_DATA_USERNAME | Bright Dataのユーザー名（任意） |
-| BRIGHT_DATA_PASSWORD | Bright Dataのパスワード（任意） |
+| BRIGHT_DATA_USERNAME | Bright Dataのユーザー名 |
+| BRIGHT_DATA_PASSWORD | Bright Dataのパスワード |
 | PAT_TOKEN | GitHub Personal Access Token |
 
-### 日本語翻訳時の名前保持
+## 更新履歴
 
-H列（日本語本文）では以下の数式を使用して、GOOGLETRANSLATE翻訳時に会社名を英語のまま保持します：
+### 2024-12-17
+- 処理件数の最小値を1件に変更（1件単位でのテスト実行が可能に）
+- エグゼクティブサマリーをレポート冒頭に追加
+- セクション⑦（ターゲット顧客・マーケティング方向性）追加
+- セクション⑮（リスク分析と対応策）追加
+- セクション⑯（最終判定）追加
+- テンプレート誤字修正ワークフロー追加
+- 達成率0%表示問題を修正
 
-```
-=SUBSTITUTE(GOOGLETRANSLATE(I2, "en", "ja"), GOOGLETRANSLATE(D2, "en", "ja"), D2)
-```
+### 2024-12-16
+- URL括弧内スペース問題修正（Thunderbirdメールマージ対応）
+- en_body/en_subject英語翻訳対応
 
-これにより「Tenkara Rod Co.」が「テンカラロッド株式会社」に翻訳されることを防ぎます。
-（敬称「様」はGOOGLETRANSLATEで自動付与されるため、数式では追加しない）
+### 2024-12-12
+- V2詳細レポート生成システム導入
+- 6パート分割生成による高品質レポート
+- Bright Data日本IPプロキシ導入
