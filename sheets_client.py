@@ -232,8 +232,10 @@ class GoogleSheetsClient:
 
         def replace_url(match):
             url = match.group(1)
-            # URLの末尾から不要な記号を除去（.,;:,など）
-            while url and url[-1] in '.,;:,':
+            # URLの末尾から不要な記号を除去（ASCII記号 + 日本語句読点）
+            # 日本語句読点: 。、）」』】〉》・ など
+            trailing_chars = '.,;:,)）。、」』】〉》・'
+            while url and url[-1] in trailing_chars:
                 url = url[:-1]
             return f'<a href="{url}">{url}</a>'
 
