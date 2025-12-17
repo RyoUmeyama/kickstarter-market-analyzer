@@ -977,6 +977,16 @@ BASIC OUTPUT RULES:
         # 「URL：」や「URL:」プレフィックスを整理（URLがある場合）
         text = re.sub(r'URL[：:]\s*(https?://)', r'\1', text)
 
+        # URLの末尾から不要な記号を除去（ASCII記号 + 日本語句読点）
+        # パターン: URL + 不要な末尾文字 → URLのみ
+        def clean_url_trailing(match):
+            url = match.group(1)
+            trailing_chars = '.,;:)）。、」』】〉》・'
+            while url and url[-1] in trailing_chars:
+                url = url[:-1]
+            return url
+        text = re.sub(r'(https?://[^\s<>"\']+)', clean_url_trailing, text)
+
         # 偽URLやプレースホルダーURLを削除
         # www.example.com, example.com, placeholder.com などを含む文を削除
         fake_url_patterns = [
@@ -1310,8 +1320,14 @@ Write in English only. No markdown formatting."""
         text = re.sub(r'https://https://', r'https://', text)
         text = re.sub(r'https://www\.https://', r'https://', text)
 
-        # URLの末尾のピリオドやカンマを削除
-        text = re.sub(r'(https://[^\s<>"\']+)[.,](?=[\s<>"\']|$)', r'\1', text)
+        # URLの末尾から不要な記号を除去（ASCII記号 + 日本語句読点）
+        def clean_url_trailing(match):
+            url = match.group(1)
+            trailing_chars = '.,;:)）。、」』】〉》・'
+            while url and url[-1] in trailing_chars:
+                url = url[:-1]
+            return url
+        text = re.sub(r'(https://[^\s<>"\']+)', clean_url_trailing, text)
 
         # 余分なwww.www.を修正
         text = re.sub(r'https://www\.www\.', r'https://www.', text)
