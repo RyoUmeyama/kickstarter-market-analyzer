@@ -237,7 +237,9 @@ class GoogleSheetsClient:
             trailing_chars = '.,;:,)）。、」』】〉》・'
             while url and url[-1] in trailing_chars:
                 url = url[:-1]
-            return f'<a href="{url}">{url}</a>'
+            # </a>の後にゼロ幅スペースを追加（メールクライアントのURL自動検出対策）
+            # &#8203; = Zero Width Space (U+200B) - 見えないがURLの区切りとして機能
+            return f'<a href="{url}">{url}</a>&#8203;'
 
         text = re.sub(url_pattern, replace_url, text)
 
