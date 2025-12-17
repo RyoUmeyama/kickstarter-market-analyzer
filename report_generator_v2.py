@@ -444,6 +444,7 @@ class ReportGeneratorV2:
             {
                 "name": "Part 6: リスク分析・最終判定・まとめ",
                 "sections": ["⑮", "⑯", "補足", "情報源", "まとめ"],
+                "max_tokens": 6000,  # Part 6は内容が多いため増加
                 "prompt": """
 以下のセクションを非常に詳細に出力してください。サンプルレポートと同等の品質・詳細度で。
 
@@ -545,13 +546,15 @@ Kickstarter製品の日本クラウドファンディング（主にMakuake）�
 """
 
             try:
+                # Part 6は内容が多いため、max_tokensを個別設定可能に
+                part_max_tokens = group.get('max_tokens', 4000)
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[
                         {"role": "system", "content": section_system_prompt},
                         {"role": "user", "content": section_user_prompt}
                     ],
-                    max_tokens=4000,
+                    max_tokens=part_max_tokens,
                     temperature=0.5,
                 )
 
