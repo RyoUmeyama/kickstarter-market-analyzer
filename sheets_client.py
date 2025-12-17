@@ -235,13 +235,20 @@ class GoogleSheetsClient:
             # URLの末尾から不要な記号を除去（ASCII記号 + 日本語句読点）
             # 日本語句読点: 。、）」』】〉》・ など
             trailing_chars = '.,;:,)）。、」』】〉》・'
+            stripped = ''
             while url and url[-1] in trailing_chars:
+                stripped = url[-1] + stripped
                 url = url[:-1]
-            # </a>の後にゼロ幅スペースを追加（メールクライアントのURL自動検出対策）
-            # &#8203; = Zero Width Space (U+200B) - 見えないがURLの区切りとして機能
-            return f'<a href="{url}">{url}</a>&#8203;'
+            # 除去した文字をリンクの後に復元
+            return f'<a href="{url}">{url}</a>{stripped}'
 
         text = re.sub(url_pattern, replace_url, text)
+
+        # 括弧内のURLの前後に半角スペースを追加（メールクライアントのURL自動検出対策）
+        # （URL） → （ URL ）
+        # (URL) → ( URL )
+        text = re.sub(r'（\s*(<a [^>]+>[^<]+</a>)\s*）', r'（ \1 ）', text)
+        text = re.sub(r'\(\s*(<a [^>]+>[^<]+</a>)\s*\)', r'( \1 )', text)
 
         # 日本語テキストの場合、「。」の後に改行を追加（既に改行がある場合は除く）
         if '。' in text:
